@@ -12,7 +12,7 @@ def plot_train_test_split(train_data, test_data, val_data=[], var="", title="Tra
             title      : Title of the plot"""
     
     if(var == ""):
-        print("No variable name is provided")
+        raise Exception("No variable name is provided")
     elif(val_data == []):
         plt.plot(range(len(train_data)), train_data[var], label="Train")
         plt.plot(range(len(train_data), len(train_data+test_data)), test_data[var], label="Test")
@@ -27,7 +27,7 @@ def plot_train_test_split(train_data, test_data, val_data=[], var="", title="Tra
         plt.title(title)
         plt.show
 
-def plot_pred_vs_label(ground_truth, prediction, title = "Predictions vs Ground Truth"):
+def plot_pred_vs_label(prediction, ground_truth, title = "Predictions vs Ground Truth"):
 
     """"Plots predictions vs true labels graph for univariate predictions.
         Parameters:
