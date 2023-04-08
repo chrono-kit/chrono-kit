@@ -44,4 +44,4 @@ def plot_pred_vs_label(prediction, ground_truth, title: str = None):
     plt.plot(range(len(prediction)), prediction, label = "Predictions")
     plt.legend(loc="best")
     plt.title(title)
-    plt.show
+    plt.show()

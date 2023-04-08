@@ -4,6 +4,11 @@ import pandas as pd
 
 class Model():
     def __init__(self,dep_var, indep_var,**kwargs):
+        """"A template class that provides a skeleton for model classes that
+            to inherit from.
+            Child classes are exppected to implement their own .fit() and .predict() methods
+            """
+        
         self.data = pd.DataFrame()
         self.data.dep_var = dep_var
         self.data.indep_var = indep_var
