@@ -3,28 +3,28 @@ import pandas as pd
 
 
 class Model():
-    def __init__(self,dep_var, indep_var,**kwargs):
+    def __init__(self,dep_var, indep_var=None,**kwargs):
         """"A template class that provides a skeleton for model classes that
             to inherit from.
             Child classes are exppected to implement their own .fit() and .predict() methods
             """
         
-        self.data = pd.DataFrame()
-        self.data.dep_var = dep_var
-        self.data.indep_var = indep_var
+        self.dep_var = dep_var
+        self.indep_var = indep_var
+        self.set_kwargs(kwargs)
+    
+    def set_allowed_kwargs(self, kwargs: list):
+        self.allowed_kwargs = kwargs
 
-        if "allowed_kwargs" in kwargs:
-            self.__allowed_kwargs = kwargs["allowed_kwargs"]
-            self.__setkwargs(kwargs)
 
-    def __checkkwargs(self, kwargs: dict):
+    def __check_kwargs(self, kwargs: dict):
           for (k,v) in kwargs.items():
-              if k not in self.__allowed_kwargs:
+              if k not in self.allowed_kwargs:
                   raise ValueError("{key} is not a valid keyword for this model".format(key = k))
 
 
-    def __setkwargs(self, kwargs: dict):
-        self.__checkkwargs(kwargs)
+    def set_kwargs(self, kwargs: dict):
+        self.__check_kwargs(kwargs)
         for (k,v) in kwargs.items():
             self.__setattr__(k,v)
 
