@@ -25,7 +25,7 @@ class DataLoader:
     
     def organize_df(self, df: pd.DataFrame):
 
-        """ Method for organizing a possbily unorganized dataframe while also making sure all entries are convertible to tensors
+        """ Method for organizing a possibly unorganized dataframe while also making sure all entries are convertible to tensors
             and keeping track of the operations done on the original dataframe"""
 
         self.organized_df = df.copy()
