@@ -87,103 +87,96 @@ class HoltTrend(Model):
         return self.forecast
 
 
-def holt_winters_additive(data, seasonal_periods=4, alpha=0.2, beta=0.2, gamma=0.2, forecast_periods=4):
-    """
-    Holt-Winters additive seasonal method for time series forecasting.
+class HoltWinters:
+    def __init__(self, data, seasonal_periods=4, alpha=0.2, beta=0.2, gamma=0.2, forecast_periods=4):
+        self.data = data
+        self.seasonal_periods = seasonal_periods
+        self.alpha = alpha
+        self.beta = beta
+        self.gamma = gamma
+        self.forecast_periods = forecast_periods
+        
+    def holt_winters_additive(self):
+        """
+        Holt-Winters additive seasonal method for time series forecasting.
 
-    Parameters:
-    data (array-like): Time series data to be used for forecasting.
-    seasonal_periods (int): The number of seasons in a year (e.g. 4 for quarterly data, 12 for monthly data).
-    alpha (float): Smoothing parameter for level.
-    beta (float): Smoothing parameter for trend.
-    gamma (float): Smoothing parameter for seasonal component.
-    forecast_periods (int): Number of periods to forecast into the future.
+        Returns:
+        forecast (pandas.DataFrame): DataFrame containing the forecasted values and their confidence intervals.
+        """
 
-    Returns:
-    forecast (pandas.DataFrame): DataFrame containing the forecasted values and their confidence intervals.
-    """
+        # Split data into training and validation sets
+        train = self.data[:-self.forecast_periods]
+        val = self.data[-self.forecast_periods:]
 
-    # Split data into training and validation sets
-    train = data[:-forecast_periods]
-    val = data[-forecast_periods:]
+        # Initialize parameters
+        level = np.mean(train)
+        trend = np.mean(np.diff(train))
+        seasonals = np.zeros(self.seasonal_periods)
 
-    # Initialize parameters
-    level = np.mean(train)
-    trend = np.mean(np.diff(train))
-    seasonals = np.zeros(seasonal_periods)
+        # Initialize forecast
+        forecast = np.zeros(len(train) + self.forecast_periods)
 
-    # Initialize forecast
-    forecast = np.zeros(len(train) + forecast_periods)
+        # Calculate initial seasonals
+        for i in range(self.seasonal_periods):
+            seasonals[i] = np.mean(train[i::self.seasonal_periods] - level)
 
-    # Calculate initial seasonals
-    for i in range(seasonal_periods):
-        seasonals[i] = np.mean(train[i::seasonal_periods] - level)
+        # Perform forecasting
+        for i in range(len(train) + self.forecast_periods):
+            if i < len(train):
+                # Update level
+                level = self.alpha * (train[i] - seasonals[i % self.seasonal_periods]) + (1 - self.alpha) * (level + trend)
+                # Update trend
+                trend = self.beta * (level - level[i - 1]) + (1 - self.beta) * trend
+                # Update seasonals
+                seasonals[i % self.seasonal_periods] = self.gamma * (train[i] - level) + (1 - self.gamma) * seasonals[i % self.seasonal_periods]
+            else:
+                # Forecast
+                forecast[i] = level + (i - len(train) + 1) * trend + seasonals[i % self.seasonal_periods]
 
-    # Perform forecasting
-    for i in range(len(train) + forecast_periods):
-        if i < len(train):
-            # Update level
-            level = alpha * (train[i] - seasonals[i % seasonal_periods]) + (1 - alpha) * (level + trend)
-            # Update trend
-            trend = beta * (level - level[i - 1]) + (1 - beta) * trend
-            # Update seasonals
-            seasonals[i % seasonal_periods] = gamma * (train[i] - level) + (1 - gamma) * seasonals[i % seasonal_periods]
-        else:
-            # Forecast
-            forecast[i] = level + (i - len(train) + 1) * trend + seasonals[i % seasonal_periods]
+        # Construct forecast DataFrame
+        forecast_df = pd.DataFrame(forecast[-self.forecast_periods:], index=val.index, columns=["Forecast"])
 
-    # Construct forecast DataFrame
-    forecast_df = pd.DataFrame(forecast[-forecast_periods:], index=val.index, columns=["Forecast"])
+        return forecast_df
+    
+    def holt_winters_multiplicative(self):
+        """
+        Holt-Winters multiplicative seasonal method for time series forecasting.
 
-    return forecast_df
+        Returns:
+        forecast (pandas.DataFrame): DataFrame containing the forecasted values and their confidence intervals.
+        """
 
+        # Split data into training and validation sets
+        train = self.data[:-self.forecast_periods]
+        val = self.data[-self.forecast_periods:]
 
-def holt_winters_multiplicative(data, seasonal_periods=4, alpha=0.2, beta=0.2, gamma=0.2, forecast_periods=4):
-    """
-    Holt-Winters multiplicative seasonal method for time series forecasting.
+        # Initialize parameters
+        level = np.mean(train)
+        trend = np.mean(np.diff(train))
+        seasonals = np.ones(self.seasonal_periods)
 
-    Parameters:
-    data (array-like): Time series data to be used for forecasting.
-    seasonal_periods (int): The number of seasons in a year (e.g. 4 for quarterly data, 12 for monthly data).
-    alpha (float): Smoothing parameter for level.
-    beta (float): Smoothing parameter for trend.
-    gamma (float): Smoothing parameter for seasonal component.
-    forecast_periods (int): Number of periods to forecast into the future.
+        # Initialize forecast
+        forecast = np.zeros(len(train) + self.forecast_periods)
 
-    Returns:
-    forecast (pandas.DataFrame): DataFrame containing the forecasted values and their confidence intervals.
-    """
+        # Calculate initial seasonals
+        for i in range(self.seasonal_periods):
+            seasonals[i] = np.mean(train[i::self.seasonal_periods] / level)
 
-    # Split data into training and validation sets
-    train = data[:-forecast_periods]
-    val = data[-forecast_periods:]
+        # Perform forecasting
+        for i in range(len(train) + self.forecast_periods):
+            if i < len(train):
+                # Update level
+                level = self.alpha * (train[i] / seasonals[i % self.seasonal_periods]) + (1 - self.alpha) * (level * trend)
+                # Update trend
+                trend = self.beta * (level / level[i - 1]) + (1 - self.beta) * trend
+                # Update seasonals
+                seasonals[i % self.seasonal_periods] = self.gamma * (train[i] / level) + (1 - self.gamma) * seasonals[i % self.seasonal_periods]
+            else:
+                # Forecast
+                forecast[i] = (level + (i - len(train) + 1) * trend) * seasonals[i % self.seasonal_periods]
 
-    # Initialize parameters
-    level = np.mean(train)
-    trend = np.mean(np.diff(train))
-    seasonals = np.ones(seasonal_periods)
+        # Construct forecast DataFrame
+        forecast_df = pd.DataFrame(forecast[-self.forecast_periods:], index=val.index, columns=["Forecast"])
 
-    # Initialize forecast
-    forecast = np.zeros(len(train) + forecast_periods)
-
-    # Calculate initial seasonals
-    for i in range(seasonal_periods):
-        seasonals[i] = np.mean(train[i::seasonal_periods] / level)
-
-    # Perform forecasting
-    for i in range(len(train) + forecast_periods):
-        if i < len(train):
-            # Update level
-            level = alpha * (train[i] / seasonals[i % seasonal_periods]) + (1 - alpha) * (level * trend)
-            # Update trend
-            trend = beta * (level / level[i - 1]) + (1 - beta) * trend
-            # Update seasonals
-            seasonals[i % seasonal_periods] = gamma * (train[i] / level) + (1 - gamma) * seasonals[i % seasonal_periods]
-        else:
-            # Forecast
-            forecast[i] = (level + (i - len(train) + 1) * trend) * seasonals[i % seasonal_periods]
-
-    # Construct forecast DataFrame
-    forecast_df = pd.DataFrame(forecast[-forecast_periods:], index=val.index, columns=["Forecast"])
-
-    return forecast_df
+        return forecast_df
+            
