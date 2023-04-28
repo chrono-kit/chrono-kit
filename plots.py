@@ -13,7 +13,7 @@ def plot_train_test_split(train_data, test_data, val_data=[], var: str = None, t
     
     assert (var != None), "No variable name is provided"
     assert (type(var) == "str"), "Variable's name must be a string"
-    assert (type(title) == "str"), "Plot title must be a string"
+    assert (type(title) == "str" or title is None), "Plot title must be a string"
 
     if (val_data == []):
         plt.plot(range(len(train_data)), train_data[var], label="Train")
@@ -38,7 +38,7 @@ def plot_pred_vs_label(prediction, ground_truth, title: str = None):
             prediction   : Predicted data of the variable, possibly of type pd.Dataframe or pd.Series
             title        : Title of the plot"""
 
-    assert (type(title) == "str"), "Plot title must be a string"
+    assert (type(title) == "str" or title is None), "Plot title must be a string"
 
     plt.plot(range(len(ground_truth)), ground_truth, label="Ground Truth")
     plt.plot(range(len(prediction)), prediction, label = "Predictions")
