@@ -7,10 +7,10 @@ import scipy.stats as stats
 
 class ETS_ANN(Model):
 
-    def __init__(self, target_var, indep_var=None, **kwargs):
+    def __init__(self, dep_var, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Additive Errors"""
         super().set_allowed_kwargs(["alpha", "conf"])
-        super().__init__(target_var, indep_var, **kwargs)
+        super().__init__(dep_var, indep_var, **kwargs)
 
         if "alpha" not in kwargs:
             self.alpha = self.__estimate_alpha()
@@ -79,9 +79,9 @@ class ETS_ANN(Model):
         l_t = l_{t-1} + alpha*e_t
         """
 
-        self.fitted = np.zeros(self.target_var.shape)
+        self.fitted = np.zeros(self.dep_var.shape)
 
-        for index, row in enumerate(self.target_var):
+        for index, row in enumerate(self.dep_var):
 
             if index == 0:
                 self.level = row[0]
@@ -136,10 +136,10 @@ class ETS_ANN(Model):
 
 class ETS_MNN(Model):
 
-    def __init__(self, target_var, indep_var=None, **kwargs):
+    def __init__(self, dep_var, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Additive Errors"""
         super().set_allowed_kwargs(["alpha", "conf"])
-        super().__init__(target_var, indep_var, **kwargs)
+        super().__init__(dep_var, indep_var, **kwargs)
 
         if "alpha" not in kwargs:
             self.alpha = self.__estimate_alpha()
@@ -207,9 +207,9 @@ class ETS_MNN(Model):
         l_t = l_{t-1}*(1 + alpha*e_t)
         """
 
-        self.fitted = np.zeros(self.target_var.shape)
+        self.fitted = np.zeros(self.dep_var.shape)
 
-        for index, row in enumerate(self.target_var):
+        for index, row in enumerate(self.dep_var):
 
             if index == 0:
                 self.level = row[0]
@@ -258,17 +258,3 @@ class ETS_MNN(Model):
                 self.forecast = torch.cat((self.forecast, self.level))
 
             return self.forecast
-
-df = pd.read_csv("/home/hasan/Desktop/Codes/yzt/datasets/GOOG.csv", index_col=0)[["Close"]]
-
-E = ETS_ANN(df[:20], alpha=0.2, conf=0.99)
-E.fit()
-
-E.predict(3, return_confidence=True)
-
-print("-----")
-
-E = ETS_MNN(df[:20], alpha=0.2, conf=0.99)
-E.fit()
-
-E.predict(3, return_confidence=True)
