@@ -4,6 +4,8 @@ import torch
 from model import Model
 from dataloader import DataLoader
 import scipy.stats as stats
+from scipy.optimize import least_squares
+from initialization_methods import heuristic_initialization
 
 class ETS_ANN(Model):
 
@@ -258,3 +260,210 @@ class ETS_MNN(Model):
                 self.forecast = torch.cat((self.forecast, self.level))
 
             return self.forecast
+
+
+class ETS_AAdM(Model):
+
+    def __init__(self, dep_var, seasonal_periods=4, indep_var=None, **kwargs):
+
+        """Implementation of Holt Winters Method with Damped Trend, Multiplicative Seasonality and Additive Errors"""
+        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma", "conf"])
+        super().__init__(dep_var, indep_var, **kwargs)
+
+        self.trend = "add"
+        self.damped = True
+        self.seasonal = "mul"
+        self.seasonal_periods = seasonal_periods
+        self.error_type = "add"
+        
+
+        if "alpha" not in kwargs:
+
+            self.__initialize(components_only=False)
+        
+        else:
+
+            self.__initialize(components_only=True)
+            
+        if "conf" not in kwargs:
+            self.conf = 0.95
+        
+        self.__calculate_conf_level()
+
+        self.residuals = torch.tensor([])
+    
+    def __estimate_params(self, init_components, params):
+        return super().estimate_params(init_components, params)
+
+    def __initialize(self, components_only=False):
+
+        lvl, trend, seasonal = heuristic_initialization(self.dep_var, trend=self.trend, seasonal=self.seasonal, seasonal_periods=self.seasonal_periods)
+
+        self.initial_level = lvl
+        self.initial_trend = trend
+        self.initial_seasonals = seasonal
+
+        alpha = 0.1
+        beta = 0.01
+        gamma = 0.01
+        phi = 0.99
+        
+        self.params = self.__estimate_params(init_components = np.array([self.initial_level, self.initial_trend, self.initial_seasonals, self.seasonal_periods]),
+                               params = np.array([alpha, beta, gamma, phi]))
+        
+        self.alpha, self.beta, self.gamma, self.phi = self.params
+
+        
+    def __calculate_conf_level(self):
+
+        """Calculate the confidence level to be used for intervals"""
+
+        #The implementation of stats.norm.ppf function without using scipy
+        #can be left for later
+
+        self.c = round(stats.norm.ppf(1 - ((1 - self.conf) / 2)), 2)
+    
+    def __update_res_variance(self, error):
+
+        self.residuals = torch.cat((self.residuals, torch.reshape(error, (1,1))))
+        
+
+        res_mean = torch.sum(self.residuals)/self.residuals.shape[0]
+
+        self.residual_variance = torch.sum(torch.square(torch.sub(self.residuals, res_mean)))
+        self.residual_variance = torch.divide(self.residual_variance, self.residuals.shape[0]-1)
+        
+
+    def __get_confidence_interval(self, h):
+
+        
+        fc_var = torch.add(1 ,torch.multiply(torch.square(self.alpha),  h-1))
+        fc_var = torch.multiply(self.residual_variance, fc_var)
+
+        return torch.multiply(self.c, fc_var)
+
+    
+    def __smooth_level(self, error, lprev, bprev, seasonal):
+        """Calculate the level"""
+
+        self.level = torch.add(torch.multiply(self.phi, bprev), torch.divide(torch.multiply(self.alpha, error), seasonal))
+        self.level = torch.add(self.level, lprev)
+    
+    def __smooth_trend(self, error, bprev, seasonal):
+
+        self.trend = torch.divide(torch.multiply(self.beta, error), seasonal)
+        self.trend = torch.add(self.trend, torch.multiply(self.phi, bprev))
+
+    def __smooth_seasonal(self, error, lprev, bprev, seasonal):
+
+        seasonal = torch.divide(torch.multiply(self.gamma, error), torch.add(lprev, torch.multiply(self.phi, bprev)))
+        seasonal = torch.add(seasonal, self.seasonals[-self.seasonal_periods])
+
+        self.seasonals = torch.cat((self.seasonals, torch.tensor(seasonal)))
+        #print(self.seasonals)
+        
+    
+    def __smooth_error(self, y, lprev, bprev, seasonal):
+
+        """Calculate error"""
+        
+        y_hat = torch.multiply(torch.add(lprev, torch.multiply(self.phi, bprev)), seasonal)
+
+        self.error = torch.sub(y, y_hat)
+
+
+    def fit(self):
+
+        """Fit the model to the data according to the equations:
+        y_t = l_{t-1}*(1 + e_t)
+        l_t = l_{t-1}*(1 + alpha*e_t)
+        """
+
+        self.fitted = np.zeros(self.dep_var.shape)
+
+        for index, row in enumerate(self.dep_var):
+
+            if index == 0:
+                self.level = self.initial_level
+                self.trend = self.initial_trend
+                self.error = torch.tensor(0, dtype=torch.float32)
+                seasonal = torch.tensor(self.initial_seasonals[0])
+                self.seasonals = torch.tensor([seasonal])
+                self.fitted[0] = row
+            
+            elif index < self.seasonal_periods:
+                
+                seasonal = torch.tensor(self.initial_seasonals[index])
+                self.__smooth_error(row, self.level, self.trend, seasonal)
+                self.__smooth_level(self.error, self.level, self.trend, seasonal)
+                self.__smooth_trend(self.error, self.trend, seasonal)
+
+                self.seasonals = torch.cat((self.seasonals, torch.tensor([seasonal])))
+
+                self.fitted[index] = torch.multiply(seasonal, torch.add(self.level, torch.multiply(self.phi, self.trend)))
+                
+            
+            else:
+                
+                seasonal = self.seasonals[-self.seasonal_periods]
+                self.__smooth_error(row, self.level, self.trend, seasonal)
+                self.__smooth_seasonal(self.error, self.level, self.trend, seasonal)
+                self.__smooth_level(self.error, self.level, self.trend, seasonal)
+                self.__smooth_trend(self.error, self.trend, seasonal)
+
+
+                self.fitted[index] = torch.multiply(seasonal, torch.add(self.level, torch.multiply(self.phi, self.trend)))
+
+            
+            self.__update_res_variance(self.error)
+
+        #assert(2==3)
+
+    
+    def predict(self, h, return_confidence=False):
+
+        """Predict the next h-th value of the target variable
+           This is again the same as the simple exponential smoothing forecast"""
+
+        if return_confidence:
+
+            self.forecast = torch.multiply(self.seasonals[-self.seasonal_periods], torch.add(self.level, torch.multiply(self.phi, self.beta)))
+            
+            fc_var = self.__get_confidence_interval(h=0)
+            upper_bounds = torch.add(self.forecast, torch.abs(fc_var))
+            lower_bounds = torch.sub(self.forecast, torch.abs(fc_var))
+
+            for i in range(1,h):
+
+                damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
+
+                k = torch.floor((i+1)/self.seasonal_periods)
+      
+                step_forecast = torch.multiply(self.seasonals[i+1-self.seasonal_periods*k], torch.add(self.level, torch.multiply(damp_factor, self.beta)))
+
+                self.forecast = torch.cat((self.forecast, step_forecast))
+
+                fc_var = self.__get_confidence_interval(h=i)
+                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
+                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
+                
+
+            return self.forecast, (upper_bounds, lower_bounds)
+        
+
+        else:
+            
+            self.forecast = torch.multiply(self.seasonals[-self.seasonal_periods], torch.add(self.level, torch.multiply(self.phi, self.trend)))
+
+            for i in range(1,h):
+                damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
+
+                k = int(torch.floor(torch.tensor((i+1)/self.seasonal_periods)).numpy())
+      
+                step_forecast = torch.multiply(self.seasonals[i+1-self.seasonal_periods*(k+1)], torch.add(self.level, torch.multiply(damp_factor, self.trend)))
+
+                self.forecast = torch.cat((self.forecast, step_forecast))
+
+            return self.forecast
+
+    
