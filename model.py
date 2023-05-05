@@ -1,6 +1,10 @@
 import numpy as np
+import torch
+from scipy.optimize import least_squares
 import pandas as pd
 from dataloader import DataLoader
+import ets_methods
+from initialization_methods import heuristic_initialization
 
 class Model():
     def __init__(self,dep_var, indep_var=None,**kwargs):
@@ -13,6 +17,7 @@ class Model():
         if indep_var is not None:
             self.indep_var = DataLoader(indep_var).to_tensor()
         self.set_kwargs(kwargs)
+
     
     def set_allowed_kwargs(self, kwargs: list):
         '''This function sets the allowed keyword arguments for the model.'''
@@ -39,6 +44,26 @@ class Model():
     def predict(self, dep_var, indep_var, *args, **kwargs):
         # This function will be overriden by the child class.
         raise NotImplementedError("This function is not implemented yet.")
+
+    def estimate_params(self, init_components, params):
+        
+        #keys are [trend, damped, seasonal, error(add or mul)]
+        methods = { ("add", True, "mul", "add") : ets_methods.AAdM,
+                  }
+        
+        method = methods[(self.trend, self.damped, self.seasonal, self.error_type)]
+
+        def func(x):
+
+            errs = method(self.dep_var, init_components=init_components, params=x)
+
+            return np.mean(np.square(np.array(errs)))
+
+        estimated_params = torch.tensor(least_squares(fun=func, x0 = params, bounds=(0,1)).x)
+
+        return estimated_params
+    
+
 
 
 
