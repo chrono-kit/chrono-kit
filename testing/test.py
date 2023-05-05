@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import os
 from metrics import Metric
 import matplotlib as mpl
+from sklearn.preprocessing import MinMaxScaler
 mpl.rcParams["figure.figsize"] = (12,12)
 
 
@@ -27,10 +28,10 @@ class Test:
         for csv in frames:
             
             df = pd.read_csv(f"{self.root}/datasets/{csv}")
-
+            
             df = df[[df.columns[-1]]] if csv != "GOOG.csv" else df[["Close"]]
 
-            self.data[csv.removesuffix(".csv")] = df
+            self.data[csv.removesuffix(".csv")] = MinMaxScaler((1,2)).fit_transform(df)
     
     def __plot_session(self, imp_outs, sm_outs):
         
@@ -77,7 +78,7 @@ class Test:
 
             for iter in range(iters):
 
-                frac = np.random.uniform(0.4,1)
+                frac = np.random.uniform(0.2,0.6)
 
                 h = np.random.randint(5,15)
 
@@ -90,14 +91,14 @@ class Test:
                 fitted = model2.fit()
 
                 implementation_forecasts = model1.predict(h)
-                statsmodels_forecast = torch.tensor(np.array(fitted.forecast(h).values)).reshape(implementation_forecasts.shape)
+                statsmodels_forecast = torch.tensor(np.array(fitted.forecast(h))).reshape(implementation_forecasts.shape)
 
                 rmse = Metric.rmse(implementation_forecasts, statsmodels_forecast)
                 mae = Metric.mae(implementation_forecasts, statsmodels_forecast)
 
                 session_metrics[iter] = [rmse, mae]
 
-                df_last_vals = np.squeeze(samp[-15:].values, axis=-1)
+                df_last_vals = np.squeeze(samp[-15:], axis=-1)
 
                 df_last_vals = torch.tensor(df_last_vals)
 
