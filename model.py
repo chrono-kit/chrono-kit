@@ -5,6 +5,7 @@ import pandas as pd
 from dataloader import DataLoader
 import ets_methods
 from initialization_methods import heuristic_initialization
+import scipy.stats as stats
 
 class Model():
     def __init__(self,dep_var, indep_var=None,**kwargs):
@@ -45,23 +46,55 @@ class Model():
         # This function will be overriden by the child class.
         raise NotImplementedError("This function is not implemented yet.")
 
-    def estimate_params(self, init_components, params):
-        
+    
+
+class ETS_Model(Model):
+
+    def __init__(self, dep_var, trend=None,  seasonal=None, error="add", seasonal_periods=None, damped=False, indep_var=None, **kwargs):
+        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma", "conf"])
+        super().__init__(dep_var, indep_var, **kwargs)
+
         #keys are [trend, damped, seasonal, error(add or mul)]
-        methods = { ("add", True, "mul", "add") : ets_methods.AAdM,
-                  }
+        self.method = { 
+                        (None, False, None, "add"): None,
+                        (None, False, "add", "add"): None,
+                        (None, False, "mul", "add"): None,
+                        ("add", False, None, "add"): None,
+                        ("add", False, "add", "add"): None,
+                        ("add", False, "mul", "add"): None,
+                        ("add", True, None, "add"): None,
+                        ("add", True, "add", "add"): None,
+                        ("add", True, "mul", "add"): ets_methods.AAdM,
+
+                        (None, False, None, "mul"): None,
+                        (None, False, "add", "mul"): None,
+                        (None, False, "mul", "mul"): None,
+                        ("add", False, None, "mul"): None,
+                        ("add", False, "add", "mul"): None,
+                        ("add", False, "mul", "mul"): None,
+                        ("add", True, None, "mul"): None,
+                        ("add", True, "add", "mul"): None,
+                        ("add", True, "mul", "mul"): ets_methods.MAdM
+                                                            }[trend, damped, seasonal, error]
         
-        method = methods[(self.trend, self.damped, self.seasonal, self.error_type)]
+
+    def estimate_params(self, init_components, params):
 
         def func(x):
 
-            errs = method(self.dep_var, init_components=init_components, params=x)
+            errs = self.method(self.dep_var, init_components=init_components, params=x)
 
             return np.mean(np.square(np.array(errs)))
 
         estimated_params = torch.tensor(least_squares(fun=func, x0 = params, bounds=(0,1)).x)
 
         return estimated_params
+
+    def calculate_conf_level(self):
+
+        """Calculate the confidence level to be used for intervals"""
+
+        return round(stats.norm.ppf(1 - ((1 - self.conf) / 2)), 2)
     
 
 
