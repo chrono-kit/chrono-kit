@@ -97,3 +97,156 @@ def MAdM(dep_var, init_components, params):
             errors.append(error)
 
     return errors
+
+def AAA(dep_var, init_components, params):
+    
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components           
+    alpha, beta, gamma = params
+
+    errors = []
+
+    for index, row in enumerate(dep_var):
+
+        if index == 0:
+
+            lvl = init_lvl
+            trend = init_trend
+            seasonal = init_seasonals[0]
+            seasonals = [seasonal]
+            errors.append(0)
+
+        elif index < seasonal_periods:            
+
+            seasonal = init_seasonals[index]     
+
+            y_hat = lvl + +trend +seasonal
+            error = (row.numpy() - y_hat)
+
+            lprev, bprev = lvl, trend
+
+            seasonal_t = seasonal+(gamma*error)
+            lvl = lprev + bprev+(alpha*error)
+            trend = bprev + beta*error
+
+            seasonals.append(seasonal_t)
+            errors.append(error)            
+
+        else:               
+
+            seasonal = seasonals[index-seasonal_periods]  
+
+            y_hat = lvl + +trend +seasonal
+            error = (row.numpy() - y_hat)
+
+            lprev, bprev = lvl, trend
+
+            seasonal_t = seasonal+(gamma*error)
+            lvl = lprev + bprev+(alpha*error)
+            trend = bprev + beta*error
+
+            seasonals.append(seasonal_t)
+            errors.append(error)
+
+    return errors
+
+def MAA(dep_var, init_components, params):
+    
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components           
+    alpha, beta, gamma = params
+
+    errors = []
+
+    for index, row in enumerate(dep_var):
+
+        if index == 0:
+
+            lvl = init_lvl
+            trend = init_trend
+            seasonal = init_seasonals[0]
+            seasonals = [seasonal]
+            errors.append(0)
+
+        elif index < seasonal_periods:            
+
+            seasonal = init_seasonals[index]     
+
+            y_hat = lvl + trend + seasonal
+            error = (row.numpy() - y_hat)/y_hat
+
+            lprev, bprev = lvl, trend
+
+            seasonal_t = seasonal+gamma*error*(lprev+bprev+seasonal)
+            lvl = lprev+bprev+alpha*(lprev+bprev+seasonal)*error
+            trend = bprev+ beta*(lprev+bprev+seasonal)*error
+
+            seasonals.append(seasonal_t)
+            errors.append(error)            
+
+        else:               
+
+            seasonal = seasonals[index-seasonal_periods]  
+
+            y_hat = lvl + trend + seasonal
+            error = (row.numpy() - y_hat)/y_hat
+
+            lprev, bprev = lvl, trend
+
+            seasonal_t = seasonal+gamma*error*(lprev+bprev+seasonal)
+            lvl = lprev+bprev+alpha*(lprev+bprev+seasonal)*error
+            trend = bprev+ beta*(lprev+bprev+seasonal)*error
+
+            seasonals.append(seasonal_t)
+            errors.append(error)
+
+    return errors
+
+def AAM(dep_var, init_components, params):
+    
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components           
+    alpha, beta, gamma = params
+
+    errors = []
+
+    for index, row in enumerate(dep_var):
+
+        if index == 0:
+
+            lvl = init_lvl
+            trend = init_trend
+            seasonal = init_seasonals[0]
+            seasonals = [seasonal]
+            errors.append(0)
+
+        elif index < seasonal_periods:            
+
+            seasonal = init_seasonals[index]     
+
+            y_hat = (lvl + trend)* seasonal
+            error = (row.numpy() - y_hat)
+
+            lprev, bprev = lvl, trend
+
+            seasonal_t = seasonal + gamma*error/(lprev+bprev)
+            lvl = lprev+bprev + alpha*error/seasonal
+            trend = bprev+ beta*(bprev*error)/seasonal
+
+            seasonals.append(seasonal_t)
+            errors.append(error)            
+
+        else:               
+
+            seasonal = seasonals[index-seasonal_periods]  
+
+            y_hat = (lvl + trend)* seasonal
+            error = (row.numpy() - y_hat)
+
+            lprev, bprev = lvl, trend
+
+            seasonal_t = seasonal + gamma*error/(lprev+bprev)
+            lvl = lprev+bprev + alpha*error/seasonal
+            trend = bprev+ beta*(bprev*error)/seasonal
+
+            seasonals.append(seasonal_t)
+            errors.append(error)
+
+    return errors
