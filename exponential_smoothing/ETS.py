@@ -6,7 +6,7 @@ from exponential_smoothing.models.ets_models import *
 from dataloader import DataLoader
 import scipy.stats as stats
 
-class ETS:
+class ETS(ETS_Model):
 
     def __new__(self, dep_var, error="add", trend=None, damped_trend=False, seasonal=None, seasonal_periods=None, **kwargs):
 

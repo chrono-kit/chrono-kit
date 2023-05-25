@@ -1,19 +1,47 @@
 import numpy as np
-import pandas as pd
 import torch
-from model import Model
+from exponential_smoothing.model import Smoothing_Model
 
-class SES(Model):
+class SES(Smoothing_Model):
     def __init__(self, dep_var, indep_var=None, **kwargs):
-        super().set_allowed_kwargs(['alpha'])
-        super().__init__(dep_var, indep_var, **kwargs)
+        self.trend = None
+        self.damped = False
+        self.seasonal = None
+        self.seasonal_periods = None
 
-    def __smooth(self, alpha:float, y, lprev):
+        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
+        
+        super().__init__(dep_var, self.trend, self.seasonal, self.seasonal_periods, self.damped, **kwargs)
+        
+        initialize_params = []
+        for param in self.params:
+
+            if param in kwargs:
+                continue
+            else:
+                if param == "phi" and not self.damped:
+                    continue
+                else:
+                    initialize_params.append(param)
+
+        self.__initialize_params(initialize_params)
+
+    def __initialize_params(self, initialize_params):
+
+        super().initialize_params(initialize_params)
+
+        self.initial_level = torch.tensor(self.init_components["level"])
+        self.initial_trend = torch.tensor(self.init_components["trend"])
+        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
+
+        self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
+
+    def __smooth_level(self, y, lprev):
         '''
         This function calculates the smoothed value for a given alpha and y value.
         Smoothing equation: 
         '''
-        return torch.add(torch.mul(alpha, y),torch.mul((1 - alpha), lprev))
+        self.level =  torch.add(torch.mul(self.alpha, y),torch.mul((1 - self.alpha), lprev))
     
     def fit(self):
         '''
@@ -23,36 +51,69 @@ class SES(Model):
         self.fitted = torch.zeros(self.dep_var.shape[0])
         for index,row in enumerate(self.dep_var):
             if index == 0:
-                self.smooth = row
+                self.level = row
                 self.fitted[0] = row
             else:
-                self.smooth = self.__smooth(self.alpha, row, self.smooth)
-                self.fitted[index] = self.smooth
-        return self.smooth.item()
+                lprev = self.level
+                self.__smooth_level(self.alpha, row, lprev)
+                self.fitted[index] = self.level   
     
     def predict(self,h):
         '''
         This function predicts the next value in the series using the forecast equation.
         yhat_{t+h|t} = l_t
         '''
-        self.forecast = torch.tensor([self.smooth])
-        for i in range(1,h):
-            self.forecast = torch.cat((self.forecast,self.__smooth(self.alpha, self.forecast[i-1], self.forecast[i-1]).reshape(1)))
+        self.forecast = torch.tensor([])
+        for i in range(1,h+1):
+            step_forecast = self.level
+            self.forecast = torch.cat(self.forecast,step_forecast)
         return self.forecast
 
 
-class HoltTrend(Model):
-    def __init__(self, dep_var, indep_var=None, **kwargs):
-        super().set_allowed_kwargs(['alpha', 'beta', 'damped'])
-        super().__init__(dep_var, indep_var, **kwargs)
+class HoltTrend(Smoothing_Model):
+    def __init__(self, dep_var, damped=False, indep_var=None, **kwargs):
+        self.trend = "add"
+        self.damped = damped
+        self.seasonal = None
+        self.seasonal_periods = None
 
-    def __smooth_level(self, alpha, y, lprev, bprev):
+        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
+        super().__init__(dep_var, self.trend, self.seasonal, self.seasonal_periods, self.damped, **kwargs)
+        
+        initialize_params = []
+        for param in self.params:
+
+            if param in kwargs:
+                continue
+            else:
+                if param == "phi" and not self.damped:
+                    continue
+                else:
+                    initialize_params.append(param)
+
+        self.__initialize_params(initialize_params)
+
+
+    def __initialize_params(self, initialize_params):
+
+        super().initialize_params(initialize_params)
+
+        self.initial_level = torch.tensor(self.init_components["level"])
+        self.initial_trend = torch.tensor(self.init_components["trend"])
+        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
+
+        self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
+
+    def __smooth_level(self, y, lprev, bprev):
         '''This function calculates the smoothed level for a given alpha and y value'''
-        return alpha * y + (1 - alpha) * (lprev + bprev)
+        self.level = torch.mul(torch.sub(1,self.alpha),torch.add(lprev, torch.mul(self.phi, bprev)))
+        self.level = torch.add(torch.mul(self.alpha, y), self.level)
 
-    def __smooth_trend(self, beta, lcurr, lprev, bprev):
+    def __smooth_trend(self, lprev, bprev):
         '''This function calculates the smoothed trend for a given beta and level values'''
-        return beta * (lcurr - lprev) + (1 - beta) * bprev
+        self.trend = torch.mul(self.beta, torch.sub(self.level, lprev))
+        self.trend = torch.add(self.trend, torch.mul(torch.sub(1, self.beta), torch.mul(self.phi, bprev)))
+
 
     def fit(self):
         
@@ -61,122 +122,166 @@ class HoltTrend(Model):
         b_t = beta * (l_t - l_{t-1}) + (1 - beta) * b_{t-1}'''
         
         self.fitted = np.zeros(self.dep_var.shape[0])
-        for index, row in self.dep_var.iterrows():
+        for index, row in enumerate(self.dep_var):
             if index == 0:
                 self.level = row[0]
                 self.trend = 0
                 self.fitted[0] = row[0]
             else:
-                self.level = self.__smooth_level(self.alpha, row[0], self.level, self.trend)
-                self.trend = self.__smooth_trend(self.beta, self.level, self.fitted[index-1], self.trend)
-                self.fitted[index] = self.level + self.trend
-                if self.damped:
-                    self.trend *= self.beta_damp
-        return self.level, self.trend
+                lprev, bprev = self.level, self.trend
+                self.__smooth_level(row, lprev, bprev)
+                self.__smooth_trend(lprev, bprev)
+                self.fitted[index] = torch.add(self.level, torch.mul(self.phi, bprev))
+        
 
     def predict(self, h):
         
         '''This function predicts the next h values in the series using the forecast equation.
         yhat_{t+h|t} = l_t + h * b_t'''
         
-        self.forecast = np.zeros(h)
-        for i in range(h):
-            self.forecast[i] = self.level + (i+1) * self.trend
-            if self.damped:
-                self.forecast[i] *= self.beta_damp ** (i+1)
+        self.forecast = torch.tensor([])
+        for i in range(1,h+1):
+
+            damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i)]))
+
+            step_forecast = torch.add(self.level, torch.mul(damp_factor, self.trend))
+            self.forecast = torch.cat(self.forecast, step_forecast)
+            
+        return self.forecast
+    
+class HoltWinters(Smoothing_Model):
+    def __init__(self, dep_var, seasonal="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+        self.trend = "add"
+        self.damped = damped
+        self.seasonal = seasonal
+        self.seasonal_periods = seasonal_periods
+
+        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
+        super().__init__(dep_var, self.trend, self.seasonal, self.seasonal_periods, self.damped, **kwargs)
+        
+        initialize_params = []
+        for param in self.params:
+
+            if param in kwargs:
+                continue
+            else:
+                if param == "phi" and not self.damped:
+                    continue
+                else:
+                    initialize_params.append(param)
+
+        self.__initialize_params(initialize_params)
+
+    def __initialize_params(self, initialize_params):
+
+        super().initialize_params(initialize_params)
+
+        self.initial_level = torch.tensor(self.init_components["level"])
+        self.initial_trend = torch.tensor(self.init_components["trend"])
+        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
+
+        self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
+
+    def __smooth_level(self, y, lprev, bprev, seasonal):
+        '''This function calculates the smoothed level for a given alpha and y value'''
+
+        if self.seasonal == "add":
+
+            self.level = torch.mul(torch.sub(1,self.alpha),torch.add(lprev, torch.mul(self.phi, bprev)))
+            self.level = torch.add(torch.mul(self.alpha, torch.sub(y, seasonal)), self.level)
+        
+        elif self.seasonal == "mul":
+
+            self.level = torch.mul(torch.sub(1,self.alpha),torch.add(lprev, torch.mul(self.phi, bprev)))
+            self.level = torch.add(torch.mul(self.alpha, torch.divide(y, seasonal)), self.level)
+
+
+    def __smooth_trend(self, lprev, bprev):
+        '''This function calculates the smoothed trend for a given beta and level values'''
+
+        self.trend = torch.mul(self.beta, torch.sub(self.level, lprev))
+        self.trend = torch.add(self.trend, torch.mul(torch.sub(1, self.beta), torch.mul(self.phi, torch.mul(self.phi, bprev))))
+
+    def __smooth_seasonal(self,  y, lprev, bprev, seasonal):
+        '''This function calculates the smoothed trend for a given beta and level values'''
+        
+        if self.seasonal == "add":
+
+            seasonal = torch.mul(torch.sub(1,self.gamma), seasonal)
+            seasonal = torch.add(seasonal, torch.mul(self.gamma, torch.sub(torch.sub(y, lprev), torch.mul(self.phi, bprev))))
+            self.seasonals = torch.cat((self.seasonals, seasonal))
+
+        elif self.seasonal == "mul":
+
+            seasonal = torch.mul(torch.sub(1,self.gamma), seasonal)
+            seasonal = torch.add(seasonal, torch.mul(self.gamma, torch.divide(y, torch.add(lprev,torch.mul(self.phi, bprev)))))
+            self.seasonals = torch.cat((self.seasonals, seasonal))
+
+
+    def fit(self):
+        
+        '''This function fits the model to the data using the following equations:
+        l_t = alpha * y_t + (1 - alpha) * (l_{t-1} + b_{t-1})
+        b_t = beta * (l_t - l_{t-1}) + (1 - beta) * b_{t-1}'''
+        
+        self.fitted = np.zeros(self.dep_var.shape)
+
+        for index, row in enumerate(self.dep_var):
+
+            if index == 0:
+                self.level = self.initial_level
+                self.trend = self.initial_trend
+                seasonal = self.initial_seasonals[0]
+                self.seasonals = torch.tensor([seasonal])
+                self.fitted[0] = row
+            
+            elif index < self.seasonal_periods:
+                
+                seasonal = self.initial_seasonals[index]
+                lprev, bprev = self.level, self.trend
+                self.__smooth_level(row, lprev, bprev, seasonal)
+                self.__smooth_trend(lprev, bprev)
+
+                self.seasonals = torch.cat((self.seasonals, seasonal))
+
+                self.fitted[index] = torch.mul(seasonal, torch.add(self.level, torch.mul(self.phi, self.trend)))
+                
+            
+            else:
+                
+                seasonal = self.seasonals[-self.seasonal_periods]
+                lprev, bprev = self.level, self.trend
+                self.__smooth_level(row, lprev, bprev, seasonal)
+                self.__smooth_trend(lprev, bprev)
+                self.__smooth_seasonal(row, lprev, bprev, seasonal)
+
+                self.fitted[index] = torch.mul(seasonal, torch.add(self.level, torch.mul(self.phi, self.trend)))
+            
+            print(self.seasonals)
+
+    def predict(self, h):
+        
+        '''This function predicts the next h values in the series using the forecast equation.
+        yhat_{t+h|t} = l_t + h * b_t'''
+        
+        self.forecast = torch.tensor([])
+        len_seasonal = self.seasonals.shape[0]
+        for i in range(1,h+1):
+       
+            damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i)]))
+            k = torch.floor((i-1)/self.seasonal_periods)
+
+            step_forecast = torch.add(self.level, torch.mul(damp_factor, self.trend))
+
+            if self.seasonal == "mul":
+                step_forecast = torch.add(step_forecast, self.seasonals[len_seasonal+i-self.seasonal_periods*(k+1)])
+            elif self.seasonal == "add":
+                step_forecast = torch.add(step_forecast, self.seasonals[len_seasonal+i-self.seasonal_periods*(k+1)])
+            
+            self.forecast = torch.cat(self.forecast, step_forecast)
+            
         return self.forecast
 
 
-class HoltWinters:
-    def __init__(self, data, seasonal_periods=4, alpha=0.2, beta=0.2, gamma=0.2, forecast_periods=4):
-        self.data = data
-        self.seasonal_periods = seasonal_periods
-        self.alpha = alpha
-        self.beta = beta
-        self.gamma = gamma
-        self.forecast_periods = forecast_periods
-        
-    def holt_winters_additive(self):
-        """
-        Holt-Winters additive seasonal method for time series forecasting.
 
-        Returns:
-        forecast (pandas.DataFrame): DataFrame containing the forecasted values and their confidence intervals.
-        """
-
-        # Split data into training and validation sets
-        train = self.data[:-self.forecast_periods]
-        val = self.data[-self.forecast_periods:]
-
-        # Initialize parameters
-        level = np.mean(train)
-        trend = np.mean(np.diff(train))
-        seasonals = np.zeros(self.seasonal_periods)
-
-        # Initialize forecast
-        forecast = np.zeros(len(train) + self.forecast_periods)
-
-        # Calculate initial seasonals
-        for i in range(self.seasonal_periods):
-            seasonals[i] = np.mean(train[i::self.seasonal_periods] - level)
-
-        # Perform forecasting
-        for i in range(len(train) + self.forecast_periods):
-            if i < len(train):
-                # Update level
-                level = self.alpha * (train[i] - seasonals[i % self.seasonal_periods]) + (1 - self.alpha) * (level + trend)
-                # Update trend
-                trend = self.beta * (level - level[i - 1]) + (1 - self.beta) * trend
-                # Update seasonals
-                seasonals[i % self.seasonal_periods] = self.gamma * (train[i] - level) + (1 - self.gamma) * seasonals[i % self.seasonal_periods]
-            else:
-                # Forecast
-                forecast[i] = level + (i - len(train) + 1) * trend + seasonals[i % self.seasonal_periods]
-
-        # Construct forecast DataFrame
-        forecast_df = pd.DataFrame(forecast[-self.forecast_periods:], index=val.index, columns=["Forecast"])
-
-        return forecast_df
-    
-    def holt_winters_multiplicative(self):
-        """
-        Holt-Winters multiplicative seasonal method for time series forecasting.
-
-        Returns:
-        forecast (pandas.DataFrame): DataFrame containing the forecasted values and their confidence intervals.
-        """
-
-        # Split data into training and validation sets
-        train = self.data[:-self.forecast_periods]
-        val = self.data[-self.forecast_periods:]
-
-        # Initialize parameters
-        level = np.mean(train)
-        trend = np.mean(np.diff(train))
-        seasonals = np.ones(self.seasonal_periods)
-
-        # Initialize forecast
-        forecast = np.zeros(len(train) + self.forecast_periods)
-
-        # Calculate initial seasonals
-        for i in range(self.seasonal_periods):
-            seasonals[i] = np.mean(train[i::self.seasonal_periods] / level)
-
-        # Perform forecasting
-        for i in range(len(train) + self.forecast_periods):
-            if i < len(train):
-                # Update level
-                level = self.alpha * (train[i] / seasonals[i % self.seasonal_periods]) + (1 - self.alpha) * (level * trend)
-                # Update trend
-                trend = self.beta * (level / level[i - 1]) + (1 - self.beta) * trend
-                # Update seasonals
-                seasonals[i % self.seasonal_periods] = self.gamma * (train[i] / level) + (1 - self.gamma) * seasonals[i % self.seasonal_periods]
-            else:
-                # Forecast
-                forecast[i] = (level + (i - len(train) + 1) * trend) * seasonals[i % self.seasonal_periods]
-
-        # Construct forecast DataFrame
-        forecast_df = pd.DataFrame(forecast[-self.forecast_periods:], index=val.index, columns=["Forecast"])
-
-        return forecast_df
             

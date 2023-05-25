@@ -534,7 +534,7 @@ def MAA(dep_var, init_components, params):
             seasonal = seasonals[index-seasonal_periods]  
 
             y_hat = lvl + trend + seasonal
-            error = (row.numpy() - y_hat)/y_hat
+            error = (row.numpy()[0] - y_hat)/y_hat
 
             lprev, bprev = lvl, trend
 

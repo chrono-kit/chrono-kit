@@ -4,6 +4,7 @@ from scipy.optimize import least_squares
 import pandas as pd
 from dataloader import DataLoader
 from .initialization import ets_methods
+from .initialization import smoothing_methods
 from .initialization.initialization_methods import heuristic_initialization
 import scipy.stats as stats
 
@@ -45,6 +46,71 @@ class Model():
     def predict(self, dep_var, indep_var, *args, **kwargs):
         # This function will be overriden by the child class.
         raise NotImplementedError("This function is not implemented yet.")
+    
+class Smoothing_Model(Model):
+
+    def __init__(self, dep_var, trend=None,  seasonal=None,  seasonal_periods=None, damped=False, indep_var=None, **kwargs):
+        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
+        super().__init__(dep_var, indep_var, **kwargs)
+
+        self.trend = trend
+        self.damped = damped
+        self.seasonal = seasonal
+        self.seasonal_periods = seasonal_periods
+
+        #keys are [trend, damped, seasonal, error(add or mul)]
+        self.method = { 
+                        (None, False, None): smoothing_methods.simple_exp,
+                        ("add", False, None): smoothing_methods.holt_trend,
+                        ("add", False, "add"): smoothing_methods.hw_add,
+                        ("add", False, "mul"): smoothing_methods.hw_mul,
+                        ("add", True, None): smoothing_methods.holt_damped_trend,
+                        ("add", True, "add"): smoothing_methods.hw_damped_add,
+                        ("add", True, "mul"): smoothing_methods.hw_damped_mul
+                                                            }[trend, damped, seasonal]
+        
+        self.params = {"alpha": 0.1, "beta": 0.01, "gamma": 0.01, "phi": 0.99}
+        self.init_components = {"level": None, "trend": None, "seasonal": None}
+        
+
+    def __estimate_params(self, init_components, params):
+
+        def func(x):
+
+            errs = self.method(self.dep_var, init_components=init_components, params=x)
+
+            return np.mean(np.square(np.array(errs)))
+
+        estimated_params = least_squares(fun=func, x0 = params, bounds=(0,1)).x
+
+        return estimated_params
+    
+    def initialize_params(self, initialize_params):
+
+        self.initial_level, self.initial_trend, self.initial_seasonals = heuristic_initialization(self.dep_var, trend=self.trend, seasonal=self.seasonal, seasonal_periods=self.seasonal_periods)
+
+        self.init_components["level"] = self.initial_level,
+        self.init_components["trend"] = self.initial_trend,
+        self.init_components["seasonal"] = self.initial_seasonals
+
+        init_params = {param: self.params[param] for param in initialize_params}
+
+        params = self.__estimate_params(
+                        init_components = [self.initial_level, self.initial_trend, self.initial_seasonals, self.seasonal_periods],
+                        params = list(init_params.values()))
+        
+        for index, param in enumerate(params):
+
+            init_params[list(init_params.keys())[index]] = param
+
+        for param in self.params:
+
+            if param in init_params:
+                self.params[param] = init_params[param]
+
+        if not self.damped:
+            self.params["phi"] = 1
+
 
     
 
