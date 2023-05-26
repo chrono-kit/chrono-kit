@@ -112,11 +112,9 @@ class Smoothing_Model(Model):
             self.params["phi"] = 1
 
 
-    
-
 class ETS_Model(Model):
 
-    def __init__(self, dep_var, trend=None,  seasonal=None, error="add", seasonal_periods=None, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None,  seasonal=None, error_type="add", seasonal_periods=None, damped=False, indep_var=None, **kwargs):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma", "conf"])
         super().__init__(dep_var, indep_var, **kwargs)
 
@@ -124,7 +122,7 @@ class ETS_Model(Model):
         self.damped = damped
         self.seasonal = seasonal
         self.seasonal_periods = seasonal_periods
-        self.error_type = error
+        self.error_type = error_type
 
         #keys are [trend, damped, seasonal, error(add or mul)]
         self.method = { 
@@ -147,7 +145,7 @@ class ETS_Model(Model):
                         ("add", True, None, "mul"): ets_methods.MAdN,
                         ("add", True, "add", "mul"): ets_methods.MAdA,
                         ("add", True, "mul", "mul"): ets_methods.MAdM
-                                                            }[trend, damped, seasonal, error]
+                                                            }[trend, damped, seasonal, error_type]
         
         self.params = {"alpha": 0.1, "beta": 0.01, "gamma": 0.01, "phi": 0.99}
         self.init_components = {"level": None, "trend": None, "seasonal": None}

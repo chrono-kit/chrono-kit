@@ -136,7 +136,7 @@ class HoltTrend(Smoothing_Model):
     
 class HoltWinters(Smoothing_Model):
     def __init__(self, dep_var, trend="add", seasonal="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
-        self.trend = "add"
+        self.trend = trend
         self.damped = damped
         self.seasonal = seasonal
         self.seasonal_periods = seasonal_periods
@@ -144,7 +144,7 @@ class HoltWinters(Smoothing_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = ["alpha", "beta"]
+        initialize_params = ["alpha", "beta", "gamma"]
         if self.damped:
             initialize_params.append("phi")
 
@@ -159,6 +159,7 @@ class HoltWinters(Smoothing_Model):
         self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
+
 
     def __smooth_level(self, y, lprev, bprev, seasonal):
         '''This function calculates the smoothed level for a given alpha and y value'''
@@ -258,12 +259,12 @@ class HoltWinters(Smoothing_Model):
         for i in range(1,h+1):
        
             damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i)]))
-            k = math.floor((i-1)/self.seasonal_periods)
-
+            k = int((i-1)/self.seasonal_periods)
+   
             step_forecast = torch.add(self.level, torch.mul(damp_factor, self.trend))
 
             if self.seasonal == "mul":
-                step_forecast = torch.add(step_forecast, self.seasonals[len_seasonal+i-self.seasonal_periods*(k+1)])
+                step_forecast = torch.mul(step_forecast, self.seasonals[len_seasonal+i-self.seasonal_periods*(k+1)])
             elif self.seasonal == "add":
                 step_forecast = torch.add(step_forecast, self.seasonals[len_seasonal+i-self.seasonal_periods*(k+1)])
             

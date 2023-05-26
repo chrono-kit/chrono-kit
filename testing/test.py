@@ -80,11 +80,12 @@ class Test:
 
                 frac = np.random.uniform(0.2,0.6)
 
-                h = np.random.randint(5,15)
+                h = np.random.randint(3,8)
 
                 samp = session_data[:int(len(session_data)*frac)]
 
                 model1, model2 = initialize_models(samp)
+
 
                 model1.fit()
 

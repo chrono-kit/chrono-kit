@@ -2,152 +2,23 @@ import numpy as np
 import torch
 from exponential_smoothing.model import ETS_Model
 
-class ETS_MNM(ETS_Model):
+class ETS_ANN(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Additive Errors"""
+        
         self.trend = None
         self.damped = False
-        self.seasonal = "mul"
-        self.seasonal_periods = seasonal_periods
-        self.error_type = "mul"
-
-        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
-        
-        initialize_params = ["alpha", "gamma"]
-
-        self.__initialize_params(initialize_params)
-
-        self.residuals = torch.tensor([])
-    
-    def __calculate_conf_level(self):
-
-        self.c = super().calculate_conf_level()
-
-    def __initialize_params(self, initialize_params):
-
-        super().initialize_params(initialize_params)
-
-        self.initial_level = torch.tensor(self.init_components["level"])
-        self.initial_trend = torch.tensor(self.init_components["trend"])
-        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
-
-        self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
-    
-    def __update_res_variance(self, error):
-
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
-        
-    def __get_confidence_interval(self, h):
-
-        #no func
-        return None
-
-    def __smooth_level(self , lprev , error , seasonal):
-        """Calculate the level"""
-
-        self.level = torch.mul(lprev, torch.add(1, torch.mul(self.alpha, error)))
-
-    def __smooth_error(self , y, y_hat):  
-
-        """Calculate error"""
-        self.error = torch.divide(torch.sub(y, y_hat), y_hat)
-
-    def __smooth_seasonal(self, seasonal,error,lprev):
-        """Calculate the level"""
-
-        seasonal = torch.mul(seasonal, torch.add(1, torch.mul(self.gamma, error)))
-        self.seasonals = torch.cat((self.seasonals, seasonal))
-
-    def fit(self):
-
-        """Fit the model to the data according to the equations:
-        y_t = l_{t-1} * s_{t-m} * (1 + e_t)
-        l_t = l_{t-1} * (1 + alpha * e_t)
-        s_t = s_{t-m} * (1 + gamma*e_t)
-        """
-
-        self.fitted = np.zeros(self.dep_var.shape)
-
-        for index, row in enumerate(self.dep_var):
-
-            if index == 0:
-                self.level = self.initial_level
-                self.error = torch.tensor(0, dtype=torch.float32)
-                seasonal = torch.tensor(self.initial_seasonals[0])
-                self.seasonals = torch.tensor([seasonal])
-                self.fitted[0] = row
-
-            elif index < self.seasonal_periods:
-
-                seasonal = torch.tensor(self.initial_seasonals[index])
-                y_hat = torch.mul(self.level,seasonal)
-
-                self.__smooth_error(row, y_hat)
-                self.__smooth_level(self.level,self.error, seasonal)
-                self.seasonals = torch.cat((self.seasonals, seasonal))
-
-                self.fitted[index] = y_hat
-
-
-            else:
-
-                seasonal = torch.tensor(self.initial_seasonals[index])
-                y_hat = torch.mul(self.level,seasonal)
-
-                self.__smooth_error(row, y_hat)
-                self.__smooth_seasonal(seasonal,self.error, self.level)
-                self.__smooth_level(self.level,self.error, seasonal)
-
-                self.fitted[index] = y_hat
-
-            self.__update_res_variance(self.error)
-
-    def predict(self, h, return_confidence=False):
-
-        """Predict the next h-th value of the target variable
-            Notice that the prediction equation is the same as simple
-            exponential smoothing
-        """
-        upper_bounds = torch.tensor([])
-        lower_bounds = torch.tensor([])
-        
-        len_s = self.seasonals.shape[0]
-
-        for i in range(1,h+1):
-
-            k = int((h-1)/self.seasonal_periods)
-            
-            step_forecast = torch.mul(self.level, self.seasonals[len_s+i-self.seasonal_periods*k])
-
-            self.forecast = torch.cat((self.forecast, step_forecast))
-
-            if return_confidence:
-                fc_var = self.__get_confidence_interval(h=i)
-                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
-                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
-                
-        if return_confidence:
-            return self.forecast, (upper_bounds, lower_bounds)
-        else:
-            return self.forecast
-
-class ETS_ANM(ETS_Model):
-
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
-        """Implementation of Simple Exponential Smoothing with Additive Errors"""
-        self.trend = None
-        self.damped = False
-        self.seasonal = "mul"
-        self.seasonal_periods = seasonal_periods
+        self.seasonal = None
+        self.seasonal_periods = None
         self.error_type = "add"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
+        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+                                damped=self.damped, indep_var=indep_var, **kwargs)
         
-        initialize_params = ["alpha", "gamma"]
-
+        initialize_params = ["alpha"]
+       
         self.__initialize_params(initialize_params)
 
         self.residuals = torch.tensor([])
@@ -161,75 +32,54 @@ class ETS_ANM(ETS_Model):
         super().initialize_params(initialize_params)
 
         self.initial_level = torch.tensor(self.init_components["level"])
-        self.initial_trend = torch.tensor(self.init_components["trend"])
-        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
     def __update_res_variance(self, error):
 
         self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
-        
+
     def __get_confidence_interval(self, h):
+        
+        fc_var = torch.add(1 ,torch.mul(torch.square(self.alpha),  h-1))
+        fc_var = torch.mul(self.residual_variance, fc_var)
 
-        #no func
-        return None
-
-    def __smooth_level(self,lprev,error, seasonal):
+        return torch.mul(self.c, torch.sqrt(fc_var))
+    
+    def __smooth_level(self, lprev):
         """Calculate the level"""
 
-        self.level = torch.add(lprev, torch.divide(torch.mul(self.alpha, error), seasonal))
+        self.level = torch.add(lprev, torch.mul(self.alpha, self.error))
     
-    def __smooth_error(self, y, lprev,seasonal):  
+    def __smooth_error(self, y, y_hat):
 
         """Calculate error"""
 
-        y_hat = torch.mul(seasonal,lprev)
-        self.error = torch.sub(y,y_hat)
-
-    def __smooth_seasonal(self, seasonal,error,lprev):
-        """Calculate the level"""
-
-        seasonal = torch.add(seasonal, torch.divide(torch.mul(self.gamma, error),lprev))
-        self.seasonals = torch.cat((self.seasonals, seasonal))
+        self.error = torch.sub(y, y_hat)
 
     def fit(self):
 
         """Fit the model to the data according to the equations:
-        y_t = l_{t-1} * s_{t-m}+ e_t
-        l_t = l_{t-1} +alpha*e_t/s_{t-m}
-        s_t = s_{t-m} + gamma*e_t/l_{t-1}
+        y_t = l_{t-1} + e_t
+        l_t = l_{t-1} + alpha*e_t
         """
 
-        self.fitted = np.zeros(self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.dep_var.shape)
 
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
                 self.level = self.initial_level
                 self.error = torch.tensor(0, dtype=torch.float32)
-                seasonal = torch.tensor(self.initial_seasonals[0])
-                self.seasonals = torch.tensor([seasonal])
                 self.fitted[0] = row
-                
-            elif index < self.seasonal_periods:
-                
-                seasonal = torch.tensor(self.initial_seasonals[index])
-                self.__smooth_error(row, self.level, seasonal)
-                self.__smooth_level(self.level,self.error, seasonal)
-                self.seasonals = torch.cat((self.seasonals, seasonal))
-
-                self.fitted[index] = torch.mul(self.level,seasonal)
-                
             
             else:
-
-                seasonal = self.seasonals[-self.seasonal_periods]
-                self.__smooth_error(row, self.level, seasonal)
-                self.__smooth_seasonal(seasonal,self.error, self.level)
-                self.__smooth_level(self.level,self.error, seasonal)
-
-                self.fitted[index] = torch.mul(self.level,seasonal)
+                
+                y_hat = self.level
+                self.__smooth_error(row, y_hat)
+                lprev = self.level
+                self.__smooth_level(lprev)
+                self.fitted[index] = y_hat
             
             self.__update_res_variance(self.error)
     
@@ -240,16 +90,13 @@ class ETS_ANM(ETS_Model):
             exponential smoothing
         """
 
+        self.forecast = torch.tensor([])
         upper_bounds = torch.tensor([])
         lower_bounds = torch.tensor([])
-        
-        len_s = self.seasonals.shape[0]
 
         for i in range(1,h+1):
-
-            k = int((h-1)/self.seasonal_periods)
             
-            step_forecast = torch.mul(self.level, self.seasonals[len_s+i-self.seasonal_periods*k])
+            step_forecast = self.level
 
             self.forecast = torch.cat((self.forecast, step_forecast))
 
@@ -265,7 +112,7 @@ class ETS_ANM(ETS_Model):
 
 class ETS_AAN(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Additive Errors"""
         self.trend = "add"
         self.damped = damped
@@ -274,7 +121,8 @@ class ETS_AAN(ETS_Model):
         self.error_type = "add"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
+        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+                                damped=self.damped, indep_var=indep_var, **kwargs)
         
         initialize_params = ["alpha", "beta"]
         if self.damped:
@@ -293,7 +141,6 @@ class ETS_AAN(ETS_Model):
 
         self.initial_level = torch.tensor(self.init_components["level"])
         self.initial_trend = torch.tensor(self.init_components["trend"])
-        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
@@ -336,24 +183,23 @@ class ETS_AAN(ETS_Model):
 
         return torch.mul(self.c, torch.sqrt(fc_var))
     
-    def __smooth_level(self, lprev,bprev): ##done
+    def __smooth_level(self, lprev,bprev): 
         """Calculate the level"""
 
         self.level = torch.add(torch.add(lprev,torch.mul(bprev, self.phi)), torch.mul(self.alpha, self.error))
     
-    def __smooth_error(self, y, lprev,bprev):  #done
+    def __smooth_error(self, y, y_hat):  
 
         """Calculate error"""
 
-        y_hat = torch.add(lprev, bprev)
         self.error = torch.sub(y, y_hat)
 
-    def __smooth_trend(self, bprev): ##done
+    def __smooth_trend(self, bprev):
         """Calculate the level"""
 
         self.trend = torch.add(torch.mul(bprev, self.phi), torch.mul(self.beta, self.error))
 
-    def fit(self):                 ##DONE
+    def fit(self):               
 
         """Fit the model to the data according to the equations:
         y_t = l_{t-1} + b_{t-1}+ e_t
@@ -361,269 +207,24 @@ class ETS_AAN(ETS_Model):
         b_t = b_{t-1} + alpha*e_t
         """
 
-        self.fitted = np.zeros(self.dep_var.shape)
-
-        for index, row in enumerate(self.dep_var):
-
-            if index == 0:
-                self.level = row[0]
-                self.trend = row[0]
-                self.error = torch.tensor(0, dtype=torch.float32)
-                self.fitted[0] = row
-            
-            else:
-
-                self.__smooth_error(row, self.level, self.trend)
-                self.__smooth_level(self.level, self.trend)
-                self.__smooth_trend(self.trend)
-                self.fitted[index] = torch.add(self.level, self.trend)
-            
-            self.__update_res_variance(self.error)
-    
-    def predict(self, h, return_confidence=False): ###???????????????
-
-        """Predict the next h-th value of the target variable
-            Notice that the prediction equation is the same as simple
-            exponential smoothing
-        """
-
-        upper_bounds = torch.tensor([])
-        lower_bounds = torch.tensor([])
-
-        for i in range(1,h+1):
-            
-            damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
-
-            step_forecast = torch.add(self.level, torch.mul(damp_factor, self.trend))
-
-            self.forecast = torch.cat((self.forecast, step_forecast))
-
-            if return_confidence:
-                fc_var = self.__get_confidence_interval(h=i)
-                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
-                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
-                
-
-        if return_confidence:
-            return self.forecast, (upper_bounds, lower_bounds)
-        else:
-            return self.forecast
-
-class ETS_MAN(ETS_Model):
-
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
-        """Implementation of Simple Exponential Smoothing with Additive Errors"""
-        
-        self.trend = "add"
-        self.damped = damped
-        self.seasonal = None
-        self.seasonal_periods = None
-        self.error_type = "mul"
-
-        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
-        
-        initialize_params = ["alpha", "beta"]
-        if self.damped:
-            initialize_params.append("phi")
-        self.__initialize_params(initialize_params)
-
-        self.residuals = torch.tensor([])
-    
-    def __calculate_conf_level(self):
-
-        self.c = super().calculate_conf_level()
-
-    def __initialize_params(self, initialize_params):
-
-        super().initialize_params(initialize_params)
-
-        self.initial_level = torch.tensor(self.init_components["level"])
-        self.initial_trend = torch.tensor(self.init_components["trend"])
-        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
-
-        self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
-    
-    def __update_res_variance(self, error):
-
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
-        
-    def __get_confidence_interval(self, h): 
-
-        #no function
-        return None
-
-    def __smooth_level(self, lprev,bprev): #done
-        """Calculate the level"""
-
-        self.level = torch.mul(torch.add(lprev,torch.mul(self.phi, bprev)), torch.add(1, torch.mul(self.alpha, self.error)))
-    
-    def __smooth_error(self, y, lprev,bprev):  #done
-
-        """Calculate error"""
-
-        y_hat = torch.add(lprev, torch.mul(self.phi, bprev))
-        self.error = torch.divide(torch.sub(y, y_hat), y_hat)
-    
-    def __smooth_trend(self, bprev,lprev): ##done
-
-        """Calculate the level"""
-
-        self.trend = torch.add(torch.mul(self.phi, bprev), torch.mul(self.beta, torch.mul(torch.add(lprev,torch.mul(self.phi, bprev)),self.error)))
-
-    def fit(self):
-
-        """Fit the model to the data according to the equations:
-        y_t = (l_{t-1}+b_{t-1})*(1 + e_t)
-        l_t = (l_{t-1}+b_{t-1})*(1 + alpha*e_t)
-        b_t = b_{t-1}+beta*(l_{t-1}+b_{t-1})*e_t
-        """
-
-        self.fitted = np.zeros(self.dep_var.shape)
-
-        for index, row in enumerate(self.dep_var):
-
-            if index == 0:
-                self.level = row[0]
-                self.trend=row[0]
-                self.error = torch.tensor(0, dtype=torch.float32)
-                self.fitted[0] = row
-            
-            else:
-
-                self.__smooth_error(row, self.level)
-                self.__smooth_level(self.level,self.trend)
-                self.__smooth_trend(self.trend,self.level)
-                self.fitted[index] = self.level
-            
-            self.__update_res_variance(self.error)
-    
-    def predict(self, h, return_confidence=False):
-
-        """Predict the next h-th value of the target variable
-           This is again the same as the simple exponential smoothing forecast"""
-
-        upper_bounds = torch.tensor([])
-        lower_bounds = torch.tensor([])
-
-        for i in range(1,h+1):
-            
-            damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
-
-            step_forecast = torch.add(self.level, torch.mul(damp_factor, self.trend))
-
-            self.forecast = torch.cat((self.forecast, step_forecast))
-
-            if return_confidence:
-                fc_var = self.__get_confidence_interval(h=i)
-                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
-                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
-                
-
-        if return_confidence:
-            return self.forecast, (upper_bounds, lower_bounds)
-        else:
-            return self.forecast
-
-
-class ETS_MNA(ETS_Model):
-
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
-        """Implementation of Simple Exponential Smoothing with Additive Errors"""
-        self.trend = None
-        self.damped = False
-        self.seasonal = "add"
-        self.seasonal_periods = seasonal_periods
-        self.error_type = "add"
-
-        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
-        
-        initialize_params = ["alpha", "gamma"]
-        self.__initialize_params(initialize_params)
-
-        self.residuals = torch.tensor([])
-    
-    def __calculate_conf_level(self):
-
-        self.c = super().calculate_conf_level()
-
-    def __initialize_params(self, initialize_params):
-
-        super().initialize_params(initialize_params)
-
-        self.initial_level = torch.tensor(self.init_components["level"])
-        self.initial_trend = torch.tensor(self.init_components["trend"])
-        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
-
-        self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
-    
-    def __update_res_variance(self, error):
-
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
-        
-    def __get_confidence_interval(self, h): 
-
-        #no function
-        return None
-
-    
-    def __smooth_level(self,lprev,seasonal,error):
-        """Calculate the level"""
-
-        self.level = torch.add(lprev, torch.mul(self.alpha, torch.mul(torch.add(lprev,seasonal),error)))
-    
-    def __smooth_error(self, y, lprev,seasonal):
-
-        """Calculate error"""
-
-        y_hat = torch.add(lprev,seasonal)
-
-        self.error = torch.divide(torch.sub(y,y_hat),y_hat)
-
-    def __smooth_seasonal(self, lprev,seasonal,error):
-        """Calculate the level"""
-
-        seasonal = torch.add(seasonal, torch.mul(self.gamma, torch.mul(torch.add(lprev,seasonal),error)))
-        self.seasonals = torch.cat((self.seasonals, seasonal))
-
-    def fit(self): 
-
-        """Fit the model to the data according to the equations:
-     
-        """
-
-        self.fitted = np.zeros(self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.dep_var.shape)
 
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
                 self.level = self.initial_level
+                self.trend = self.initial_trend
                 self.error = torch.tensor(0, dtype=torch.float32)
-                seasonal = torch.tensor(self.initial_seasonals[0])
-                self.seasonals = torch.tensor([seasonal])
                 self.fitted[0] = row
-                
-            elif index < self.seasonal_periods:
-                
-                seasonal = torch.tensor(self.initial_seasonals[index])
-
-                self.__smooth_error(row, self.level, seasonal)
-                self.__smooth_level(self.level,seasonal,self.error)
-
-                self.seasonals = torch.cat((self.seasonals, seasonal))
-
-                self.fitted[index] = torch.add(self.level,seasonal)
-                
             
             else:
-
-                seasonal = self.seasonals[-self.seasonal_periods]
-                self.__smooth_error(row, self.level, seasonal)
-                self.__smooth_seasonal(self.level,seasonal,self.error)
-                self.__smooth_level(self.level,seasonal,self.error)
-
-                self.fitted[index] = torch.add(self.level,seasonal)
+                
+                y_hat = torch.add(self.level, self.trend)
+                self.__smooth_error(row, y_hat)
+                lprev, bprev = self.level, self.trend
+                self.__smooth_level(lprev, bprev)
+                self.__smooth_trend(lprev)
+                self.fitted[index] = y_hat
             
             self.__update_res_variance(self.error)
     
@@ -634,16 +235,15 @@ class ETS_MNA(ETS_Model):
             exponential smoothing
         """
 
+        self.forecast = torch.tensor([])
         upper_bounds = torch.tensor([])
         lower_bounds = torch.tensor([])
-        
-        len_s = self.seasonals.shape[0]
 
         for i in range(1,h+1):
-
-            k = int((h-1)/self.seasonal_periods)
             
-            step_forecast = torch.add(self.level, self.seasonals[len_s+i-self.seasonal_periods*k])
+            damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
+
+            step_forecast = torch.add(self.level, torch.mul(damp_factor, self.trend))
 
             self.forecast = torch.cat((self.forecast, step_forecast))
 
@@ -652,14 +252,15 @@ class ETS_MNA(ETS_Model):
                 upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
                 lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
+
         if return_confidence:
             return self.forecast, (upper_bounds, lower_bounds)
         else:
-            return self.forecast                        
+            return self.forecast
         
 class ETS_ANA(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Additive Errors"""
         self.trend = None
         self.damped = False
@@ -668,7 +269,8 @@ class ETS_ANA(ETS_Model):
         self.error_type = "add"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
+        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+                                damped=self.damped, indep_var=indep_var, **kwargs)
         
         initialize_params = ["alpha", "gamma"]
         self.__initialize_params(initialize_params)
@@ -684,7 +286,6 @@ class ETS_ANA(ETS_Model):
         super().initialize_params(initialize_params)
 
         self.initial_level = torch.tensor(self.init_components["level"])
-        self.initial_trend = torch.tensor(self.init_components["trend"])
         self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
@@ -702,24 +303,22 @@ class ETS_ANA(ETS_Model):
         fc_var = torch.mul(self.residual_variance, fc_var)
 
         return torch.mul(self.c, fc_var)
-
     
-    def __smooth_level(self,lprev,error): 
+    def __smooth_level(self,lprev): 
         """Calculate the level"""
 
-        self.level = torch.add(lprev, torch.mul(self.alpha, error))
+        self.level = torch.add(lprev, torch.mul(self.alpha, self.error))
     
-    def __smooth_error(self, y, lprev, seasonal): 
+    def __smooth_error(self, y, y_hat): 
 
         """Calculate error"""
 
-        y_hat = torch.add(lprev, seasonal)
         self.error = torch.sub(y, y_hat)
 
-    def __smooth_seasonal(self, seasonal, error):
+    def __smooth_seasonal(self, seasonal):
         """Calculate the level"""
 
-        seasonal = torch.add(seasonal, torch.mul(self.gamma, error))
+        seasonal = torch.add(seasonal, torch.mul(self.gamma, self.error))
         self.seasonals = torch.cat((self.seasonals, seasonal))
 
     def fit(self): 
@@ -729,37 +328,39 @@ class ETS_ANA(ETS_Model):
         s_t = s_{t-m} + gamma*e_t
         """
 
-        self.fitted = np.zeros(self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.dep_var.shape)
 
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
                 self.level = self.initial_level
                 self.error = torch.tensor(0, dtype=torch.float32)
-                seasonal = torch.tensor(self.initial_seasonals[0])
+                seasonal = self.initial_seasonals[0]
                 self.seasonals = torch.tensor([seasonal])
                 self.fitted[0] = row
                 
             elif index < self.seasonal_periods:
                 
-                seasonal = torch.tensor(self.initial_seasonals[index])
+                seasonal = self.initial_seasonals[index]
+                y_hat = torch.add(self.level, seasonal)
                 lprev = self.level
-                self.__smooth_error(row, lprev, seasonal)
-                self.__smooth_level(lprev,self.error)
-                self.seasonals = torch.cat((self.seasonals, torch.tensor([seasonal])))
+                self.__smooth_error(row, y_hat)
+                self.__smooth_level(lprev)
+                self.seasonals = torch.cat((self.seasonals, seasonal))
 
-                self.fitted[index] = torch.add(self.level,seasonal)
+                self.fitted[index] = y_hat
                 
             
             else:
 
                 seasonal = self.seasonals[-self.seasonal_periods]
+                y_hat = torch.add(self.level, seasonal)
                 lprev = self.level
-                self.__smooth_error(row, lprev, seasonal)
-                self.__smooth_level(lprev,self.error)
-                self.__smooth_seasonal(seasonal,self.error)
+                self.__smooth_error(row, y_hat)
+                self.__smooth_level(lprev)
+                self.__smooth_seasonal(seasonal)
 
-                self.fitted[index] = torch.add(self.level,seasonal)
+                self.fitted[index] = y_hat
             
             self.__update_res_variance(self.error)
     
@@ -770,6 +371,7 @@ class ETS_ANA(ETS_Model):
             exponential smoothing
         """
         
+        self.forecast = torch.tensor([])
         upper_bounds = torch.tensor([])
         lower_bounds = torch.tensor([])
         
@@ -779,7 +381,7 @@ class ETS_ANA(ETS_Model):
 
             k = int((h-1)/self.seasonal_periods)
             
-            step_forecast = torch.add(self.level, self.seasonals[len_s+i-self.seasonal_periods*k])
+            step_forecast = torch.add(self.level, self.seasonals[len_s+i-self.seasonal_periods*(k+1)])
 
             self.forecast = torch.cat((self.forecast, step_forecast))
 
@@ -788,150 +390,14 @@ class ETS_ANA(ETS_Model):
                 upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
                 lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
-        if return_confidence:
-            return self.forecast, (upper_bounds, lower_bounds)
-        else:
-            return self.forecast
-
-
-class ETS_MAA(ETS_Model):
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
-
-        """Implementation of Holt Winters Method with Damped Trend, Multiplicative Seasonality and Additive Errors"""
-        self.trend = "add"
-        self.damped = damped
-        self.seasonal = "add"
-        self.seasonal_periods = seasonal_periods
-        self.error_type = "mul"
-
-        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
-        
-        initialize_params = ["alpha", "beta", "gamma"]
-        if self.damped:
-            initialize_params.append("phi")
-        self.__initialize_params(initialize_params)
-
-        self.residuals = torch.tensor([])
-    
-    def __calculate_conf_level(self):
-
-        self.c = super().calculate_conf_level()
-
-    def __initialize_params(self, initialize_params):
-
-        super().initialize_params(initialize_params)
-
-        self.initial_level = torch.tensor(self.init_components["level"])
-        self.initial_trend = torch.tensor(self.init_components["trend"])
-        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
-
-        self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
-    
-    def __update_res_variance(self, error):
-
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
-
-    def __get_confidence_interval(self, h):
-
-        #NO EQUATION
-
-        return None
-    
-    def __smooth_level(self, error, lprev,bprev,seasonal):
-        """Calculate the level"""
-
-        self.level = torch.mul(self.alpha,torch.add(seasonal,torch.add(lprev,torch.mul(self.phi, bprev))))
-        self.level = torch.mul(self.error,self.level)
-        self.level = torch.add(self.level,torch.add(lprev,torch.mul(self.phi, bprev)))
-    
-    def __smooth_error(self, y, lprev, bprev, seasonal):
-        """Calculate error"""
-        
-        y_hat = torch.add(torch.add(lprev, torch.mul(self.phi, bprev)), seasonal)
-
-        self.error = torch.divide(torch.sub(y, y_hat), y_hat)
-
-    def __smooth_seasonal(self, seasonal, error,lprev,bprev):
-        seasonal = torch.add(seasonal, torch.mul(error,torch.mul(self.gamma,torch.add(seasonal,torch.add(lprev, torch.mul(self.phi,bprev))))))
-        self.seasonals = torch.cat((self.seasonals, seasonal))
-
-    def __smooth_trend(self, error, lprev, bprev,seasonal):
-        self.trend = torch.add(torch.mul(self.phi, bprev), torch.mul(error,torch.mul(self.beta,torch.add(seasonal,torch.add(lprev,torch.mul(self.phi,bprev))))))
-
-    def fit(self):
-
-        """Fit the model to the data according to the equations:
-        y_t = (l_{t-1} + b_{t-1} + s_{t-m})(1+e_t)
-        l_t = l_{t-1} + b_{t-1} + alpha*(l_{t-1} + b_{t-1} + s_{t-m})e_t
-        """
-        self.fitted = np.zeros(self.dep_var.shape)
-
-        for index, row in enumerate(self.dep_var):
-            if index == 0:
-                self.level = self.initial_level
-                self.trend = self.initial_trend
-                self.error = torch.tensor(0, dtype=torch.float32)
-                seasonal = torch.tensor(self.initial_seasonals[0])
-                self.seasonals = torch.tensor([seasonal])
-                self.fitted[0] = row
-            
-            elif index < self.seasonal_periods:
-                
-                seasonal = torch.tensor(self.initial_seasonals[index])
-                self.__smooth_error(row, self.level, self.trend, seasonal)
-                lprev, bprev = self.level, self.trend
-                self.__smooth_level(self.error, lprev, bprev, seasonal)
-                self.__smooth_trend(self.error, lprev, bprev, seasonal)
-                self.seasonals = torch.cat((self.seasonals, seasonal))
-                self.fitted[index] = torch.add(self.level, torch.add(self.trend, seasonal))
-            else:
-                
-                seasonal = self.seasonals[-self.seasonal_periods]
-                self.__smooth_error(row, self.level, self.trend, seasonal)
-                self.__smooth_seasonal(self.error)
-                lprev, bprev = self.level, self.trend
-                self.__smooth_level(self.error, lprev, bprev, seasonal)
-                self.__smooth_trend(self.error, lprev, bprev, seasonal)
-                self.fitted[index] = torch.add(self.level, torch.add(self.trend, seasonal))
-            self.__update_res_variance(self.error)
-
-    
-    def predict(self, h, return_confidence=False):
-
-        """Predict the next h-th value of the target variable
-            Notice that the prediction equation is the same as simple
-            exponential smoothing
-        """
-
-        upper_bounds = torch.tensor([])
-        lower_bounds = torch.tensor([])
-
-        for i in range(1,h+1):
-            
-            damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
-
-            k = int((h-1)/self.seasonal_periods)
-            len_s = self.seasonals.shape[0]
-
-            step_forecast = torch.add(self.level, torch.mul(damp_factor, self.trend))
-            step_forecast = torch.add(step_forecast, self.seasonals[len_s+i-self.seasonal_periods*k])
-
-            self.forecast = torch.cat((self.forecast, step_forecast))
-
-            if return_confidence:
-                fc_var = self.__get_confidence_interval(h=i)
-                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
-                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
-                
-
         if return_confidence:
             return self.forecast, (upper_bounds, lower_bounds)
         else:
             return self.forecast
 
 class ETS_AAA(ETS_Model):
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, indep_var=None, **kwargs):
 
         self.trend = "add"
         self.damped = damped
@@ -940,7 +406,8 @@ class ETS_AAA(ETS_Model):
         self.error_type = "add"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
+        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+                                damped=self.damped, indep_var=indep_var, **kwargs)
         
         initialize_params = ["alpha", "beta", "gamma"]
         if self.damped:
@@ -1021,11 +488,8 @@ class ETS_AAA(ETS_Model):
         self.level = torch.add(lprev, torch.mul(self.phi, bprev))
         self.level = torch.add(self.level, torch.mul(self.alpha, self.error))
     
-    def __smooth_error(self, y, lprev,bprev,seasonal):
-
+    def __smooth_error(self, y, y_hat):
         """Calculate error"""
-
-        y_hat = torch.add(lprev, torch.add(torch.mul(self.phi, bprev), seasonal))
 
         self.error = torch.sub(y, y_hat)
 
@@ -1049,31 +513,33 @@ class ETS_AAA(ETS_Model):
                 self.level = self.initial_level
                 self.trend = self.initial_trend
                 self.error = torch.tensor(0, dtype=torch.float32)
-                seasonal = torch.tensor(self.initial_seasonals[0])
+                seasonal = self.initial_seasonals[0]
                 self.seasonals = torch.tensor([seasonal])
                 self.fitted[0] = row
             
             elif index < self.seasonal_periods:
                 
-                seasonal = torch.tensor(self.initial_seasonals[index])
-                self.__smooth_error(row, self.level, self.trend, seasonal)
+                seasonal = self.initial_seasonals[index]
+                y_hat = torch.add(self.level, torch.add(torch.mul(self.phi, self.trend), seasonal))
+                self.__smooth_error(row, y_hat)
                 lprev, bprev = self.level, self.trend
                 self.__smooth_level(lprev, bprev)
                 self.__smooth_trend(bprev)
                 self.seasonals = torch.cat((self.seasonals, seasonal))
-                self.fitted[index] = torch.add(self.level, torch.add(self.trend, seasonal))
+                self.fitted[index] = y_hat
             else:
                 
                 seasonal = self.seasonals[-self.seasonal_periods]
-                self.__smooth_error(row, self.level, self.trend, seasonal)
-                self.__smooth_seasonal(seasonal)
+                y_hat = torch.add(self.level, torch.add(torch.mul(self.phi, self.trend), seasonal))
+                self.__smooth_error(row, y_hat)
                 lprev, bprev = self.level, self.trend
                 self.__smooth_level(lprev, bprev)
                 self.__smooth_trend(bprev)
-                self.fitted[index] = torch.add(self.level, torch.add(self.trend, seasonal))
+                self.__smooth_seasonal(seasonal)
+                self.fitted[index] =y_hat
+
             self.__update_res_variance(self.error)
 
-    
     def predict(self, h, return_confidence=False):
 
         """Predict the next h-th value of the target variable
@@ -1086,15 +552,17 @@ class ETS_AAA(ETS_Model):
         upper_bounds = torch.tensor([])
         lower_bounds = torch.tensor([])
 
+        len_s = self.seasonals.shape[0]
+
         for i in range(1,h+1):
             
             damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
 
             k = int((h-1)/self.seasonal_periods)
-            len_s = self.seasonals.shape[0]
+            
 
             step_forecast = torch.add(self.level, torch.mul(damp_factor, self.trend))
-            step_forecast = torch.add(step_forecast, self.seasonals[len_s+i-self.seasonal_periods*k])
+            step_forecast = torch.add(step_forecast, self.seasonals[len_s+i-self.seasonal_periods*(k+1)])
 
             self.forecast = torch.cat((self.forecast, step_forecast))
 
@@ -1109,22 +577,22 @@ class ETS_AAA(ETS_Model):
         else:
             return self.forecast
 
-class ETS_ANN(ETS_Model):
+class ETS_ANM(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Additive Errors"""
-        
         self.trend = None
         self.damped = False
-        self.seasonal = None
-        self.seasonal_periods = None
+        self.seasonal = "mul"
+        self.seasonal_periods = seasonal_periods
         self.error_type = "add"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
+        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+                                damped=self.damped, indep_var=indep_var, **kwargs)
         
-        initialize_params = ["alpha"]
-       
+        initialize_params = ["alpha", "gamma"]
+
         self.__initialize_params(initialize_params)
 
         self.residuals = torch.tensor([])
@@ -1138,7 +606,6 @@ class ETS_ANN(ETS_Model):
         super().initialize_params(initialize_params)
 
         self.initial_level = torch.tensor(self.init_components["level"])
-        self.initial_trend = torch.tensor(self.init_components["trend"])
         self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
@@ -1146,30 +613,35 @@ class ETS_ANN(ETS_Model):
     def __update_res_variance(self, error):
 
         self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
-
-    def __get_confidence_interval(self, h):
         
-        fc_var = torch.add(1 ,torch.mul(torch.square(self.alpha),  h-1))
-        fc_var = torch.mul(self.residual_variance, fc_var)
+    def __get_confidence_interval(self, h):
 
-        return torch.mul(self.c, torch.sqrt(fc_var))
-    
-    def __smooth_level(self, lprev):
+        #no func
+        return None
+
+    def __smooth_level(self,lprev, seasonal):
         """Calculate the level"""
 
-        self.level = torch.add(lprev, torch.mul(self.alpha, self.error))
+        self.level = torch.add(lprev, torch.divide(torch.mul(self.alpha, self.error), seasonal))
     
-    def __smooth_error(self, y, lprev):
+    def __smooth_error(self, y, y_hat):  
 
         """Calculate error"""
 
-        self.error = torch.sub(y, lprev)
+        self.error = torch.sub(y,y_hat)
+
+    def __smooth_seasonal(self, seasonal, lprev):
+        """Calculate the level"""
+
+        seasonal = torch.add(seasonal, torch.divide(torch.mul(self.gamma, self.error),lprev))
+        self.seasonals = torch.cat((self.seasonals, seasonal))
 
     def fit(self):
 
         """Fit the model to the data according to the equations:
-        y_t = l_{t-1} + e_t
-        l_t = l_{t-1} + alpha*e_t
+        y_t = l_{t-1} * s_{t-m}+ e_t
+        l_t = l_{t-1} +alpha*e_t/s_{t-m}
+        s_t = s_{t-m} + gamma*e_t/l_{t-1}
         """
 
         self.fitted = np.zeros(self.dep_var.shape)
@@ -1179,13 +651,29 @@ class ETS_ANN(ETS_Model):
             if index == 0:
                 self.level = self.initial_level
                 self.error = torch.tensor(0, dtype=torch.float32)
+                seasonal = self.initial_seasonals[0]
+                self.seasonals = seasonal
                 self.fitted[0] = row
-            
-            else:
+                
+            elif index < self.seasonal_periods:
+                seasonal = self.initial_seasonals[index]
+                y_hat = torch.mul(self.level,seasonal)
+                lprev = self.level
+                self.__smooth_error(row, y_hat)
+                self.__smooth_level(lprev, seasonal)
+                self.seasonals = torch.cat((self.seasonals, seasonal))
 
-                self.__smooth_error(row, self.level)
-                self.__smooth_level(self.level)
-                self.fitted[index] = self.level
+                self.fitted[index] = y_hat
+                
+            else:
+                seasonal = self.seasonals[-self.seasonal_periods]
+                y_hat = torch.mul(self.level,seasonal)
+                lprev = self.level
+                self.__smooth_error(row, y_hat)
+                self.__smooth_level(lprev, seasonal)
+                self.__smooth_seasonal(seasonal,lprev)
+
+                self.fitted[index] = y_hat
             
             self.__update_res_variance(self.error)
     
@@ -1196,39 +684,33 @@ class ETS_ANN(ETS_Model):
             exponential smoothing
         """
 
-        if return_confidence:
+        self.forecast = torch.tensor([])
+        upper_bounds = torch.tensor([])
+        lower_bounds = torch.tensor([])
+        
+        len_s = self.seasonals.shape[0]
 
-            self.forecast = self.level
+        for i in range(1,h+1):
+
+            k = int((h-1)/self.seasonal_periods)
             
-            fc_var = self.__get_confidence_interval(h=0)
-            upper_bounds = torch.add(self.forecast, torch.abs(fc_var))
-            lower_bounds = torch.sub(self.forecast, torch.abs(fc_var))
+            step_forecast = torch.mul(self.level, self.seasonals[len_s+i-self.seasonal_periods*(k+1)])
 
-            for i in range(1,h):
+            self.forecast = torch.cat((self.forecast, step_forecast))
 
-                step_forecast = self.level
-
-                self.forecast = torch.cat((self.forecast, step_forecast))
-
+            if return_confidence:
                 fc_var = self.__get_confidence_interval(h=i)
                 upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
                 lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
-
+        if return_confidence:
             return self.forecast, (upper_bounds, lower_bounds)
-        
-
         else:
-
-            self.forecast = self.level
-            for i in range(1,h):
-                self.forecast = torch.cat((self.forecast, self.level))
-
             return self.forecast
 
 class ETS_AAM(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, indep_var=None, **kwargs):
 
         """Implementation of Holt Winters Method with Damped Trend, Multiplicative Seasonality and Additive Errors"""
 
@@ -1239,7 +721,8 @@ class ETS_AAM(ETS_Model):
         self.error_type = "add"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
+        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+                                damped=self.damped, indep_var=indep_var, **kwargs)
         
         initialize_params = ["alpha", "beta", "gamma"]
         if self.damped:
@@ -1271,29 +754,27 @@ class ETS_AAM(ETS_Model):
         ###No known equation for this method, will implement later
         pass
     
-    def __smooth_level(self, error, lprev, bprev, seasonal):
+    def __smooth_level(self, lprev, bprev, seasonal):
         """Calculate the level"""
 
-        self.level = torch.add(torch.mul(self.phi, bprev), torch.divide(torch.mul(self.alpha, error), seasonal))
+        self.level = torch.add(torch.mul(self.phi, bprev), torch.divide(torch.mul(self.alpha, self.error), seasonal))
         self.level = torch.add(self.level, lprev)
     
-    def __smooth_trend(self, error, bprev, seasonal):
+    def __smooth_trend(self, bprev, seasonal):
 
-        self.trend = torch.divide(torch.mul(self.beta, error), seasonal)
+        self.trend = torch.divide(torch.mul(self.beta, self.error), seasonal)
         self.trend = torch.add(self.trend, torch.mul(self.phi, bprev))
 
-    def __smooth_seasonal(self, error, lprev, bprev):
+    def __smooth_seasonal(self, lprev, bprev):
 
-        seasonal = torch.divide(torch.mul(self.gamma, error), torch.add(lprev, torch.mul(self.phi, bprev)))
+        seasonal = torch.divide(torch.mul(self.gamma, self.error), torch.add(lprev, torch.mul(self.phi, bprev)))
         seasonal = torch.add(seasonal, self.seasonals[-self.seasonal_periods])
 
         self.seasonals = torch.cat((self.seasonals, seasonal))
     
-    def __smooth_error(self, y, lprev, bprev, seasonal):
+    def __smooth_error(self, y, y_hat):
 
         """Calculate error"""
-        
-        y_hat = torch.mul(torch.add(lprev, torch.mul(self.phi, bprev)), seasonal)
 
         self.error = torch.sub(y, y_hat)
 
@@ -1304,7 +785,7 @@ class ETS_AAM(ETS_Model):
         l_t = l_{t-1}*(1 + alpha*e_t)
         """
 
-        self.fitted = np.zeros(self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.dep_var.shape)
 
         for index, row in enumerate(self.dep_var):
 
@@ -1313,90 +794,70 @@ class ETS_AAM(ETS_Model):
                 self.trend = self.initial_trend
                 self.error = torch.tensor(0, dtype=torch.float32)
                 seasonal = self.initial_seasonals[0]
-                self.seasonals = torch.tensor([seasonal])
+                self.seasonals = seasonal
                 self.fitted[0] = row
             
             elif index < self.seasonal_periods:
                 
                 seasonal = self.initial_seasonals[index]
-                self.__smooth_error(row, self.level, self.trend, seasonal)
-                self.__smooth_level(self.error, self.level, self.trend, seasonal)
-                self.__smooth_trend(self.error, self.trend, seasonal)
+                y_hat = torch.mul(torch.add(self.level, torch.mul(self.phi, self.trend)), seasonal)
+                lprev, bprev = self.level, self.trend
+                self.__smooth_error(row, y_hat)
+                self.__smooth_level(lprev, bprev, seasonal)
+                self.__smooth_trend(bprev, seasonal)
+                self.seasonals = torch.cat((self.seasonals, seasonal))
 
-                self.seasonals = torch.cat((self.seasonals, torch.tensor([seasonal])))
-
-                self.fitted[index] = torch.mul(seasonal, torch.add(self.level, torch.mul(self.phi, self.trend)))
+                self.fitted[index] = y_hat
                 
             
             else:
                 
                 seasonal = self.seasonals[-self.seasonal_periods]
-                self.__smooth_error(row, self.level, self.trend, seasonal)
-                self.__smooth_seasonal(self.error, self.level, self.trend)
-                self.__smooth_level(self.error, self.level, self.trend, seasonal)
-                self.__smooth_trend(self.error, self.trend, seasonal)
+                y_hat = torch.mul(torch.add(self.level, torch.mul(self.phi, self.trend)), seasonal)
+                lprev, bprev = self.level, self.trend
+                self.__smooth_error(row, y_hat)
+                self.__smooth_level(lprev, bprev, seasonal)
+                self.__smooth_trend(bprev, seasonal)
+                self.__smooth_seasonal(lprev, bprev)
 
-
-                self.fitted[index] = torch.mul(seasonal, torch.add(self.level, torch.mul(self.phi, self.trend)))
+                self.fitted[index] = y_hat
             
             self.__update_res_variance(self.error)
 
     
-    def predict(self, h, confidence_level: float = None):
+    def predict(self, h, return_confidence = False):
 
         """Predict the next h-th value of the target variable
            This is again the same as the simple exponential smoothing forecast"""
+        
+        self.forecast = torch.tensor([])
+        upper_bounds = torch.tensor([])
+        lower_bounds = torch.tensor([])
+        
+        len_s = self.seasonals.shape[0]
 
-        if confidence_level:
-
-            assert(type(confidence_level) == float and confidence_level < 1. and confidence_level > 0.), "Confidence level must be a float between 0 and 1"
-
-            self.conf = confidence_level
-
-            self.__calculate_conf_level()
-
-            self.forecast = torch.mul(self.seasonals[-self.seasonal_periods], torch.add(self.level, torch.mul(self.phi, self.beta)))
+        for i in range(1,h+1):
             
-            fc_var = self.__get_confidence_interval(h=0)
-            upper_bounds = torch.add(self.forecast, torch.abs(fc_var))
-            lower_bounds = torch.sub(self.forecast, torch.abs(fc_var))
+            damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
+            k = int((h-1)/self.seasonal_periods)
+            
+            step_forecast = torch.mul(self.seasonals[len_s+i-self.seasonal_periods*(k+1)], torch.add(self.level, torch.mul(damp_factor, self.trend)))
 
-            for i in range(1,h+1):
+            self.forecast = torch.cat((self.forecast, step_forecast))
 
-                damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
-
-                k = torch.floor((i+1)/self.seasonal_periods)
-                len_seasonal = self.seasonal.shape[0]
-      
-                step_forecast = torch.mul(self.seasonals[len_seasonal+i-self.seasonal_periods*k], torch.add(self.level, torch.mul(damp_factor, self.beta)))
-
-                self.forecast = torch.cat((self.forecast, step_forecast))
-
+            if return_confidence:
                 fc_var = self.__get_confidence_interval(h=i)
                 upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
                 lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
-
+        if return_confidence:
             return self.forecast, (upper_bounds, lower_bounds)
-
         else:
-            
-            self.forecast = torch.mul(self.seasonals[-self.seasonal_periods], torch.add(self.level, torch.mul(self.phi, self.trend)))
-
-            for i in range(1,h):
-                damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
-
-                k = int(torch.floor(torch.tensor((i+1)/self.seasonal_periods)).numpy())
-      
-                step_forecast = torch.mul(self.seasonals[i+1-self.seasonal_periods*(k+1)], torch.add(self.level, torch.mul(damp_factor, self.trend)))
-
-                self.forecast = torch.cat((self.forecast, step_forecast))
-
             return self.forecast
 
 class ETS_MNN(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Multiplicative Errors"""
         self.trend = None
         self.damped = False
@@ -1405,7 +866,8 @@ class ETS_MNN(ETS_Model):
         self.error_type = "mul"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
+        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+                                damped=self.damped, indep_var=indep_var, **kwargs)
         
         initialize_params = ["alpha"]
         self.__initialize_params(initialize_params)
@@ -1421,35 +883,29 @@ class ETS_MNN(ETS_Model):
         super().initialize_params(initialize_params)
 
         self.initial_level = torch.tensor(self.init_components["level"])
-        self.initial_trend = torch.tensor(self.init_components["trend"])
-        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
     def __update_res_variance(self, error):
 
         self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
-        
 
     def __get_confidence_interval(self, h):
-
         
         fc_var = torch.add(1 ,torch.mul(torch.square(self.alpha),  h-1))
         fc_var = torch.mul(self.residual_variance, fc_var)
 
         return torch.mul(self.c, fc_var)
-
     
     def __smooth_level(self, lprev):
         """Calculate the level"""
 
         self.level = torch.mul(lprev, torch.add(1, torch.mul(self.alpha, self.error)))
     
-    def __smooth_error(self, y, lprev):
-
+    def __smooth_error(self, y, y_hat):
         """Calculate error"""
 
-        self.error = torch.divide(torch.sub(y, lprev), lprev)
+        self.error = torch.divide(torch.sub(y, y_hat), y_hat)
 
     def fit(self):
 
@@ -1458,20 +914,21 @@ class ETS_MNN(ETS_Model):
         l_t = l_{t-1}*(1 + alpha*e_t)
         """
 
-        self.fitted = np.zeros(self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.dep_var.shape)
 
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
-                self.level = row[0]
+                self.level = self.initial_level
                 self.error = torch.tensor(0, dtype=torch.float32)
                 self.fitted[0] = row
             
             else:
-
-                self.__smooth_error(row, self.level)
-                self.__smooth_level(self.level)
-                self.fitted[index] = self.level
+                y_hat = self.level
+                lprev = self.level
+                self.__smooth_error(row, y_hat)
+                self.__smooth_level(lprev)
+                self.fitted[index] = y_hat
             
             self.__update_res_variance(self.error)
     
@@ -1480,41 +937,545 @@ class ETS_MNN(ETS_Model):
         """Predict the next h-th value of the target variable
            This is again the same as the simple exponential smoothing forecast"""
 
-        if return_confidence:
+        self.forecast = torch.tensor([])
+        upper_bounds = torch.tensor([])
+        lower_bounds = torch.tensor([])
 
-            self.forecast = self.level
+        for i in range(1,h+1):
             
-            fc_var = self.__get_confidence_interval(h=0)
-            upper_bounds = torch.add(self.forecast, torch.abs(fc_var))
-            lower_bounds = torch.sub(self.forecast, torch.abs(fc_var))
+            step_forecast = self.level
 
-            for i in range(1,h):
-      
-                step_forecast = self.level
+            self.forecast = torch.cat((self.forecast, step_forecast))
 
-                self.forecast = torch.cat((self.forecast, step_forecast))
+            if return_confidence:
+                fc_var = self.__get_confidence_interval(h=i)
+                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
+                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
+                
+        if return_confidence:
+            return self.forecast, (upper_bounds, lower_bounds)
+        else:
+            return self.forecast
 
+class ETS_MAN(ETS_Model):
+
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, indep_var=None, **kwargs):
+        """Implementation of Simple Exponential Smoothing with Additive Errors"""
+        
+        self.trend = "add"
+        self.damped = damped
+        self.seasonal = None
+        self.seasonal_periods = None
+        self.error_type = "mul"
+
+        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
+        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+                                damped=self.damped, indep_var=indep_var, **kwargs)
+        
+        initialize_params = ["alpha", "beta"]
+        if self.damped:
+            initialize_params.append("phi")
+        self.__initialize_params(initialize_params)
+
+        self.residuals = torch.tensor([])
+    
+    def __calculate_conf_level(self):
+
+        self.c = super().calculate_conf_level()
+
+    def __initialize_params(self, initialize_params):
+
+        super().initialize_params(initialize_params)
+
+        self.initial_level = torch.tensor(self.init_components["level"])
+        self.initial_trend = torch.tensor(self.init_components["trend"])
+
+        self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
+    
+    def __update_res_variance(self, error):
+
+        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        
+    def __get_confidence_interval(self, h): 
+
+        #no function
+        return None
+
+    def __smooth_level(self, lprev,bprev): #done
+        """Calculate the level"""
+
+        self.level = torch.mul(torch.add(lprev,torch.mul(self.phi, bprev)), torch.add(1, torch.mul(self.alpha, self.error)))
+    
+    def __smooth_error(self, y, y_hat):  #done
+        """Calculate error"""
+
+        self.error = torch.divide(torch.sub(y, y_hat), y_hat)
+    
+    def __smooth_trend(self, bprev,lprev): ##done
+
+        """Calculate the level"""
+
+        self.trend = torch.add(torch.mul(self.phi, bprev), torch.mul(self.beta, torch.mul(torch.add(lprev,torch.mul(self.phi, bprev)),self.error)))
+
+    def fit(self):
+
+        """Fit the model to the data according to the equations:
+        y_t = (l_{t-1}+b_{t-1})*(1 + e_t)
+        l_t = (l_{t-1}+b_{t-1})*(1 + alpha*e_t)
+        b_t = b_{t-1}+beta*(l_{t-1}+b_{t-1})*e_t
+        """
+
+        self.fitted = np.zeros(self.dep_var.shape)
+
+        for index, row in enumerate(self.dep_var):
+
+            if index == 0:
+                self.level = row[0]
+                self.trend=row[0]
+                self.error = torch.tensor(0, dtype=torch.float32)
+                self.fitted[0] = row
+            
+            else:
+                y_hat = torch.add(self.level, torch.mul(self.phi, self.trend))
+                self.__smooth_error(row, y_hat)
+                lprev, bprev = self.level, self.trend
+                self.__smooth_level(lprev,bprev)
+                self.__smooth_trend(bprev, lprev)
+                self.fitted[index] = y_hat
+            
+            self.__update_res_variance(self.error)
+    
+    def predict(self, h, return_confidence=False):
+
+        """Predict the next h-th value of the target variable
+            Notice that the prediction equation is the same as simple
+            exponential smoothing
+        """
+
+        self.forecast = torch.tensor([])
+        upper_bounds = torch.tensor([])
+        lower_bounds = torch.tensor([])
+
+        for i in range(1,h+1):
+            
+            damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
+
+            step_forecast = torch.add(self.level, torch.mul(damp_factor, self.trend))
+
+            self.forecast = torch.cat((self.forecast, step_forecast))
+
+            if return_confidence:
                 fc_var = self.__get_confidence_interval(h=i)
                 upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
                 lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
 
+        if return_confidence:
             return self.forecast, (upper_bounds, lower_bounds)
-        
-
         else:
-
-            self.forecast = self.level
-            for i in range(1,h):
-                self.forecast = torch.cat((self.forecast, self.level))
-
             return self.forecast
 
+class ETS_MNA(ETS_Model):
 
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, indep_var=None, **kwargs):
+        """Implementation of Simple Exponential Smoothing with Additive Errors"""
+        self.trend = None
+        self.damped = False
+        self.seasonal = "add"
+        self.seasonal_periods = seasonal_periods
+        self.error_type = "add"
+
+        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
+        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+                                damped=self.damped, indep_var=indep_var, **kwargs)
+        
+        initialize_params = ["alpha", "gamma"]
+        self.__initialize_params(initialize_params)
+
+        self.residuals = torch.tensor([])
+    
+    def __calculate_conf_level(self):
+
+        self.c = super().calculate_conf_level()
+
+    def __initialize_params(self, initialize_params):
+
+        super().initialize_params(initialize_params)
+
+        self.initial_level = torch.tensor(self.init_components["level"])
+        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
+
+        self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
+    
+    def __update_res_variance(self, error):
+
+        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        
+    def __get_confidence_interval(self, h): 
+
+        #no function
+        return None
+
+    def __smooth_level(self,lprev,seasonal):
+        """Calculate the level"""
+
+        self.level = torch.add(lprev, torch.mul(self.alpha, torch.mul(torch.add(lprev,seasonal),self.error)))
+    
+    def __smooth_error(self, y, y_hat):
+        """Calculate error"""
+
+        self.error = torch.divide(torch.sub(y,y_hat),y_hat)
+
+    def __smooth_seasonal(self, lprev,seasonal):
+        """Calculate the level"""
+
+        seasonal = torch.add(seasonal, torch.mul(self.gamma, torch.mul(torch.add(lprev,seasonal),self.error)))
+        self.seasonals = torch.cat((self.seasonals, seasonal))
+
+    def fit(self): 
+        """Fit the model to the data according to the equations:
+        y_t = l_{t-1} + s_{t-m}+ e_t
+        l_t = l_{t-1} +alpha*e_t
+        s_t = s_{t-m} + gamma*e_t
+        """
+
+        self.fitted = torch.zeros(size=self.dep_var.shape)
+
+        for index, row in enumerate(self.dep_var):
+
+            if index == 0:
+                self.level = self.initial_level
+                self.error = torch.tensor(0, dtype=torch.float32)
+                seasonal = self.initial_seasonals[0]
+                self.seasonals = torch.tensor([seasonal])
+                self.fitted[0] = row
+                
+            elif index < self.seasonal_periods:
+                
+                seasonal = self.initial_seasonals[index]
+                y_hat = torch.add(self.level, seasonal)
+                lprev = self.level
+                self.__smooth_error(row, y_hat)
+                self.__smooth_level(lprev, seasonal)
+                self.seasonals = torch.cat((self.seasonals, seasonal))
+
+                self.fitted[index] = y_hat     
+            
+            else:
+
+                seasonal = self.seasonals[-self.seasonal_periods]
+                y_hat = torch.add(self.level, seasonal)
+                lprev = self.level
+                self.__smooth_error(row, y_hat)
+                self.__smooth_level(lprev, seasonal)
+                self.__smooth_seasonal(lprev, seasonal)
+
+                self.fitted[index] = y_hat
+            
+            self.__update_res_variance(self.error)
+    
+    def predict(self, h, return_confidence=False):
+
+        """Predict the next h-th value of the target variable
+            Notice that the prediction equation is the same as simple
+            exponential smoothing
+        """
+        
+        self.forecast = torch.tensor([])
+        upper_bounds = torch.tensor([])
+        lower_bounds = torch.tensor([])
+        
+        len_s = self.seasonals.shape[0]
+
+        for i in range(1,h+1):
+
+            k = int((h-1)/self.seasonal_periods)
+            
+            step_forecast = torch.add(self.level, self.seasonals[len_s+i-self.seasonal_periods*(k+1)])
+
+            self.forecast = torch.cat((self.forecast, step_forecast))
+
+            if return_confidence:
+                fc_var = self.__get_confidence_interval(h=i)
+                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
+                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
+                
+        if return_confidence:
+            return self.forecast, (upper_bounds, lower_bounds)
+        else:
+            return self.forecast
+
+class ETS_MAA(ETS_Model):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, indep_var=None, **kwargs):
+
+        """Implementation of Holt Winters Method with Damped Trend, Multiplicative Seasonality and Additive Errors"""
+        self.trend = "add"
+        self.damped = damped
+        self.seasonal = "add"
+        self.seasonal_periods = seasonal_periods
+        self.error_type = "mul"
+
+        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
+        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+                                damped=self.damped, indep_var=indep_var, **kwargs)
+        
+        initialize_params = ["alpha", "beta", "gamma"]
+        if self.damped:
+            initialize_params.append("phi")
+        self.__initialize_params(initialize_params)
+
+        self.residuals = torch.tensor([])
+    
+    def __calculate_conf_level(self):
+
+        self.c = super().calculate_conf_level()
+
+    def __initialize_params(self, initialize_params):
+
+        super().initialize_params(initialize_params)
+
+        self.initial_level = torch.tensor(self.init_components["level"])
+        self.initial_trend = torch.tensor(self.init_components["trend"])
+        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
+
+        self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
+    
+    def __update_res_variance(self, error):
+
+        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+
+    def __get_confidence_interval(self, h):
+
+        #NO EQUATION
+        return None
+    
+    def __smooth_level(self, lprev,bprev,seasonal):
+        """Calculate the level"""
+
+        self.level = torch.mul(self.alpha,torch.add(seasonal,torch.add(lprev,torch.mul(self.phi, bprev))))
+        self.level = torch.mul(self.error,self.level)
+        self.level = torch.add(self.level,torch.add(lprev,torch.mul(self.phi, bprev)))
+    
+    def __smooth_error(self, y, y_hat):
+        """Calculate error"""
+
+        self.error = torch.divide(torch.sub(y, y_hat), y_hat)
+
+    def __smooth_seasonal(self, seasonal, lprev,bprev):
+        seasonal = torch.add(seasonal, torch.mul(self.error,torch.mul(self.gamma,torch.add(seasonal,torch.add(lprev, torch.mul(self.phi,bprev))))))
+        self.seasonals = torch.cat((self.seasonals, seasonal))
+
+    def __smooth_trend(self, lprev, bprev,seasonal):
+        self.trend = torch.add(torch.mul(self.phi, bprev), torch.mul(self.error,torch.mul(self.beta,torch.add(seasonal,torch.add(lprev,torch.mul(self.phi,bprev))))))
+
+    def fit(self):
+
+        """Fit the model to the data according to the equations:
+        y_t = l_{t-1} + b_{t-1} + s_{t-m}+ e_t
+        l_t = l_{t-1} + b_{t-1} + alpha*e_t
+        """
+        self.fitted = np.zeros(self.dep_var.shape)
+
+        for index, row in enumerate(self.dep_var):
+            if index == 0:
+                self.level = self.initial_level
+                self.trend = self.initial_trend
+                self.error = torch.tensor(0, dtype=torch.float32)
+                seasonal = self.initial_seasonals[0]
+                self.seasonals = torch.tensor([seasonal])
+                self.fitted[0] = row
+            
+            elif index < self.seasonal_periods:
+                
+                seasonal = self.initial_seasonals[index]
+                y_hat = torch.add(self.level, torch.add(torch.mul(self.phi, self.trend), seasonal))
+                self.__smooth_error(row, y_hat)
+                lprev, bprev = self.level, self.trend
+                self.__smooth_level(lprev, bprev, seasonal)
+                self.__smooth_trend(lprev, bprev, seasonal)
+                self.seasonals = torch.cat((self.seasonals, seasonal))
+                self.fitted[index] = y_hat
+            else:
+                
+                seasonal = self.seasonals[-self.seasonal_periods]
+                y_hat = torch.add(self.level, torch.add(torch.mul(self.phi, self.trend), seasonal))
+                self.__smooth_error(row, y_hat)
+                lprev, bprev = self.level, self.trend
+                self.__smooth_level(lprev, bprev, seasonal)
+                self.__smooth_trend(lprev, bprev, seasonal)
+                self.__smooth_seasonal(seasonal, lprev, bprev)
+                self.fitted[index] =y_hat
+
+            self.__update_res_variance(self.error)
+
+    def predict(self, h, return_confidence=False):
+
+        """Predict the next h-th value of the target variable
+            Notice that the prediction equation is the same as simple
+            exponential smoothing
+        """
+
+        self.forecast = torch.tensor([])
+
+        upper_bounds = torch.tensor([])
+        lower_bounds = torch.tensor([])
+
+        len_s = self.seasonals.shape[0]
+
+        for i in range(1,h+1):
+            
+            damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
+
+            k = int((h-1)/self.seasonal_periods)
+            
+
+            step_forecast = torch.add(self.level, torch.mul(damp_factor, self.trend))
+            step_forecast = torch.add(step_forecast, self.seasonals[len_s+i-self.seasonal_periods*(k+1)])
+
+            self.forecast = torch.cat((self.forecast, step_forecast))
+
+            if return_confidence:
+                fc_var = self.__get_confidence_interval(h=i)
+                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
+                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
+                
+
+        if return_confidence:
+            return self.forecast, (upper_bounds, lower_bounds)
+        else:
+            return self.forecast
+
+class ETS_MNM(ETS_Model):
+
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, indep_var=None, **kwargs):
+        """Implementation of Simple Exponential Smoothing with Additive Errors"""
+        self.trend = None
+        self.damped = False
+        self.seasonal = "mul"
+        self.seasonal_periods = seasonal_periods
+        self.error_type = "mul"
+
+        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
+        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+                                damped=self.damped, indep_var=indep_var, **kwargs)
+        
+        initialize_params = ["alpha", "gamma"]
+
+        self.__initialize_params(initialize_params)
+
+        self.residuals = torch.tensor([])
+    
+    def __calculate_conf_level(self):
+
+        self.c = super().calculate_conf_level()
+
+    def __initialize_params(self, initialize_params):
+
+        super().initialize_params(initialize_params)
+
+        self.initial_level = torch.tensor(self.init_components["level"])
+        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
+
+        self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
+    
+    def __update_res_variance(self, error):
+
+        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        
+    def __get_confidence_interval(self, h):
+        #no func
+        return None
+
+    def __smooth_level(self, lprev, seasonal):
+        """Calculate the level"""
+
+        self.level = torch.mul(lprev, torch.add(1, torch.mul(self.alpha, self.error)))
+
+    def __smooth_error(self, y, y_hat):  
+        """Calculate error"""
+        self.error = torch.divide(torch.sub(y, y_hat), y_hat)
+
+    def __smooth_seasonal(self, seasonal, lprev):
+        """Calculate the level"""
+
+        seasonal = torch.mul(seasonal, torch.add(1, torch.mul(self.gamma, self.error)))
+        self.seasonals = torch.cat((self.seasonals, seasonal))
+
+    def fit(self):
+
+        """Fit the model to the data according to the equations:
+        y_t = l_{t-1} * s_{t-m}+ e_t
+        l_t = l_{t-1} +alpha*e_t/s_{t-m}
+        s_t = s_{t-m} + gamma*e_t/l_{t-1}
+        """
+
+        self.fitted = np.zeros(self.dep_var.shape)
+
+        for index, row in enumerate(self.dep_var):
+
+            if index == 0:
+                self.level = self.initial_level
+                self.error = torch.tensor(0, dtype=torch.float32)
+                seasonal = self.initial_seasonals[0]
+                self.seasonals = seasonal
+                self.fitted[0] = row
+                
+            elif index < self.seasonal_periods:
+                seasonal = self.initial_seasonals[index]
+                y_hat = torch.mul(self.level,seasonal)
+                lprev = self.level
+                self.__smooth_error(row, y_hat)
+                self.__smooth_level(lprev, seasonal)
+                self.seasonals = torch.cat((self.seasonals, seasonal))
+
+                self.fitted[index] = y_hat
+                       
+            else:
+                seasonal = self.seasonals[-self.seasonal_periods]
+                y_hat = torch.mul(self.level,seasonal)
+                lprev = self.level
+                self.__smooth_error(row, y_hat)
+                self.__smooth_level(lprev, seasonal)
+                self.__smooth_seasonal(seasonal,lprev)
+
+                self.fitted[index] = y_hat
+            
+            self.__update_res_variance(self.error)
+    
+    def predict(self, h, return_confidence=False):
+
+        """Predict the next h-th value of the target variable
+            Notice that the prediction equation is the same as simple
+            exponential smoothing
+        """
+
+        self.forecast = torch.tensor([])
+        upper_bounds = torch.tensor([])
+        lower_bounds = torch.tensor([])
+        
+        len_s = self.seasonals.shape[0]
+
+        for i in range(1,h+1):
+
+            k = int((h-1)/self.seasonal_periods)
+            
+            step_forecast = torch.mul(self.level, self.seasonals[len_s+i-self.seasonal_periods*(k+1)])
+
+            self.forecast = torch.cat((self.forecast, step_forecast))
+
+            if return_confidence:
+                fc_var = self.__get_confidence_interval(h=i)
+                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
+                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
+                
+        if return_confidence:
+            return self.forecast, (upper_bounds, lower_bounds)
+        else:
+            return self.forecast
 
 class ETS_MAM(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, indep_var=None, **kwargs):
 
         self.trend = "add"
         self.damped = damped
@@ -1523,7 +1484,8 @@ class ETS_MAM(ETS_Model):
         self.error_type = "mul"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
+        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+                                damped=self.damped, indep_var=indep_var, **kwargs)
         
         initialize_params = ["alpha", "beta", "gamma"]
         if self.damped:
@@ -1555,32 +1517,26 @@ class ETS_MAM(ETS_Model):
         ###No known equation for this method, will implement later
         pass
     
-    def __smooth_level(self, error, lprev, bprev):
+    def __smooth_level(self, lprev, bprev):
         """Calculate the level"""
 
         self.level = torch.add(lprev, torch.mul(self.phi, bprev))
-        self.level = torch.mul(self.level, torch.add(1, torch.mul(self.alpha, error)))
+        self.level = torch.mul(self.level, torch.add(1, torch.mul(self.alpha, self.error)))
     
-    def __smooth_trend(self, error, lprev, bprev):
+    def __smooth_trend(self, lprev, bprev):
 
-        self.trend = torch.mul(torch.mul(error, self.beta), torch.add(lprev , torch.mul(self.phi, bprev)))
+        self.trend = torch.mul(torch.mul(self.error, self.beta), torch.add(lprev , torch.mul(self.phi, bprev)))
         self.trend = torch.add(self.trend, torch.mul(self.phi, bprev))
 
-    def __smooth_seasonal(self, error):
+    def __smooth_seasonal(self):
 
-        seasonal = torch.mul(self.seasonal_periods, torch.add(1, torch.mul(self.gamma, error)))
-
+        seasonal = torch.mul(self.seasonals[-self.seasonal_periods], torch.add(1, torch.mul(self.gamma, self.error)))
         self.seasonals = torch.cat((self.seasonals, seasonal))
-        
     
-    def __smooth_error(self, y, lprev, bprev, seasonal):
-
+    def __smooth_error(self, y, y_hat):
         """Calculate error"""
-        
-        y_hat = torch.mul(torch.add(lprev, torch.mul(self.phi, bprev)), seasonal)
 
         self.error = torch.divide(torch.sub(y, y_hat), y_hat)
-
 
     def fit(self):
 
@@ -1589,7 +1545,7 @@ class ETS_MAM(ETS_Model):
         l_t = l_{t-1}*(1 + alpha*e_t)
         """
 
-        self.fitted = np.zeros(self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.dep_var.shape)
 
         for index, row in enumerate(self.dep_var):
 
@@ -1598,78 +1554,60 @@ class ETS_MAM(ETS_Model):
                 self.trend = self.initial_trend
                 self.error = torch.tensor(0, dtype=torch.float32)
                 seasonal = self.initial_seasonals[0]
-                self.seasonals = torch.tensor([seasonal])
+                self.seasonals = seasonal
                 self.fitted[0] = row
             
             elif index < self.seasonal_periods:
-                
                 seasonal = self.initial_seasonals[index]
-                self.__smooth_error(row, self.level, self.trend, seasonal)
+                y_hat = torch.mul(torch.add(self.level, torch.mul(self.phi, self.trend)), seasonal)
                 lprev, bprev = self.level, self.trend
-                self.__smooth_level(self.error, lprev, bprev)
-                self.__smooth_trend(self.error, lprev, bprev)
+                self.__smooth_error(row, y_hat)
+                self.__smooth_level(lprev, bprev)
+                self.__smooth_trend(lprev, bprev)
+                self.seasonals = torch.cat((self.seasonals, seasonal))
 
-                self.seasonals = torch.cat((self.seasonals, torch.tensor([seasonal])))
-
-                self.fitted[index] = torch.mul(seasonal, torch.add(self.level, torch.mul(self.phi, self.trend)))
-                
+                self.fitted[index] = y_hat
             
             else:
-                
                 seasonal = self.seasonals[-self.seasonal_periods]
-                self.__smooth_error(row, self.level, self.trend, seasonal)
-                self.__smooth_seasonal(self.error)
+                y_hat = torch.mul(torch.add(self.level, torch.mul(self.phi, self.trend)), seasonal)
                 lprev, bprev = self.level, self.trend
-                self.__smooth_level(self.error, lprev, bprev)
-                self.__smooth_trend(self.error, lprev, bprev)
+                self.__smooth_error(row, y_hat)
+                self.__smooth_level(lprev, bprev)
+                self.__smooth_trend(lprev, bprev)
+                self.__smooth_seasonal()
 
-                self.fitted[index] = torch.mul(seasonal, torch.add(self.level, torch.mul(self.phi, self.trend)))
-
+                self.fitted[index] = y_hat
+            
             self.__update_res_variance(self.error)
 
     
-    def predict(self, h, return_confidence=False):
+    def predict(self, h, return_confidence = False):
 
         """Predict the next h-th value of the target variable
            This is again the same as the simple exponential smoothing forecast"""
+        
+        self.forecast = torch.tensor([])
+        upper_bounds = torch.tensor([])
+        lower_bounds = torch.tensor([])
+        
+        len_s = self.seasonals.shape[0]
 
-        if return_confidence:
-
-            self.forecast = torch.mul(self.seasonals[-self.seasonal_periods], torch.add(self.level, torch.mul(self.phi, self.beta)))
+        for i in range(1,h+1):
             
-            fc_var = self.__get_confidence_interval(h=0)
-            upper_bounds = torch.add(self.forecast, torch.abs(fc_var))
-            lower_bounds = torch.sub(self.forecast, torch.abs(fc_var))
+            damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
+            k = int((h-1)/self.seasonal_periods)
+            
+            step_forecast = torch.mul(self.seasonals[len_s+i-self.seasonal_periods*(k+1)], torch.add(self.level, torch.mul(damp_factor, self.trend)))
 
-            for i in range(1,h):
+            self.forecast = torch.cat((self.forecast, step_forecast))
 
-                damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
-
-                k = torch.floor((i+1)/self.seasonal_periods)
-      
-                step_forecast = torch.mul(self.seasonals[i+1-self.seasonal_periods*k], torch.add(self.level, torch.mul(damp_factor, self.beta)))
-
-                self.forecast = torch.cat((self.forecast, step_forecast))
-
+            if return_confidence:
                 fc_var = self.__get_confidence_interval(h=i)
                 upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
                 lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
-
+        if return_confidence:
             return self.forecast, (upper_bounds, lower_bounds)
-        
-
         else:
-            
-            self.forecast = torch.mul(self.seasonals[-self.seasonal_periods], torch.add(self.level, torch.mul(self.phi, self.trend)))
-
-            for i in range(1,h):
-                damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
-
-                k = int(torch.floor(torch.tensor((i+1)/self.seasonal_periods)).numpy())
-      
-                step_forecast = torch.mul(self.seasonals[i+1-self.seasonal_periods*(k+1)], torch.add(self.level, torch.mul(damp_factor, self.trend)))
-
-                self.forecast = torch.cat((self.forecast, step_forecast))
-
             return self.forecast

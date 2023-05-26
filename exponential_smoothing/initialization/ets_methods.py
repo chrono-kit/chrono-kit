@@ -3,8 +3,9 @@ import numpy as np
 
 def ANN(dep_var, init_components, params):
 
-    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components            
-    alpha = params
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components
+            
+    alpha = params[0]
 
     errors = []
 
@@ -19,6 +20,8 @@ def ANN(dep_var, init_components, params):
 
             y_hat = lvl
             error = row.numpy()[0] - y_hat
+
+            
 
             lvl = lvl + alpha*error
 
@@ -222,7 +225,7 @@ def MNA(dep_var, init_components, params):
 def MNN(dep_var, init_components, params):
 
     init_lvl, init_trend, init_seasonals, seasonal_periods = init_components            
-    alpha = params
+    alpha = params[0]
 
     errors = []
 
@@ -467,7 +470,7 @@ def AAA(dep_var, init_components, params):
             seasonal = init_seasonals[index]     
 
             y_hat = lvl + +trend +seasonal
-            error = (row.numpy() - y_hat)
+            error = row.numpy()[0] - y_hat
 
             lprev, bprev = lvl, trend
 
@@ -483,7 +486,7 @@ def AAA(dep_var, init_components, params):
             seasonal = seasonals[index-seasonal_periods]  
 
             y_hat = lvl + +trend +seasonal
-            error = (row.numpy() - y_hat)
+            error = row.numpy()[0] - y_hat
 
             lprev, bprev = lvl, trend
 
@@ -518,7 +521,7 @@ def MAA(dep_var, init_components, params):
             seasonal = init_seasonals[index]     
 
             y_hat = lvl + trend + seasonal
-            error = (row.numpy() - y_hat)/y_hat
+            error = (row.numpy()[0] - y_hat)/y_hat
 
             lprev, bprev = lvl, trend
 
