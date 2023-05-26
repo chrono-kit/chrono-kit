@@ -1,9 +1,11 @@
 import numpy as np
 import torch
+import math
 from exponential_smoothing.model import Smoothing_Model
 
 class SES(Smoothing_Model):
-    def __init__(self, dep_var, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, seasonal_periods=None, damped=False, indep_var=None, **kwargs):
+
         self.trend = None
         self.damped = False
         self.seasonal = None
@@ -13,17 +15,7 @@ class SES(Smoothing_Model):
         
         super().__init__(dep_var, self.trend, self.seasonal, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
-
+        initialize_params = ["alpha"]
         self.__initialize_params(initialize_params)
 
     def __initialize_params(self, initialize_params):
@@ -31,8 +23,6 @@ class SES(Smoothing_Model):
         super().initialize_params(initialize_params)
 
         self.initial_level = torch.tensor(self.init_components["level"])
-        self.initial_trend = torch.tensor(self.init_components["trend"])
-        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
 
@@ -51,12 +41,13 @@ class SES(Smoothing_Model):
         self.fitted = torch.zeros(self.dep_var.shape[0])
         for index,row in enumerate(self.dep_var):
             if index == 0:
-                self.level = row
+                self.level = self.initial_level
                 self.fitted[0] = row
             else:
+                y_hat = self.level
                 lprev = self.level
-                self.__smooth_level(self.alpha, row, lprev)
-                self.fitted[index] = self.level   
+                self.__smooth_level(row, lprev)
+                self.fitted[index] = y_hat  
     
     def predict(self,h):
         '''
@@ -66,12 +57,12 @@ class SES(Smoothing_Model):
         self.forecast = torch.tensor([])
         for i in range(1,h+1):
             step_forecast = self.level
-            self.forecast = torch.cat(self.forecast,step_forecast)
+            self.forecast = torch.cat((self.forecast,step_forecast))
         return self.forecast
 
 
 class HoltTrend(Smoothing_Model):
-    def __init__(self, dep_var, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend="add", seasonal=None, seasonal_periods=None, damped=False, indep_var=None, **kwargs):
         self.trend = "add"
         self.damped = damped
         self.seasonal = None
@@ -80,16 +71,9 @@ class HoltTrend(Smoothing_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
+        initialize_params = ["alpha", "beta"]
+        if self.damped:
+            initialize_params.append("phi")
 
         self.__initialize_params(initialize_params)
 
@@ -100,7 +84,6 @@ class HoltTrend(Smoothing_Model):
 
         self.initial_level = torch.tensor(self.init_components["level"])
         self.initial_trend = torch.tensor(self.init_components["trend"])
-        self.initial_seasonals = torch.tensor(self.init_components["seasonal"])
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
 
@@ -124,14 +107,16 @@ class HoltTrend(Smoothing_Model):
         self.fitted = np.zeros(self.dep_var.shape[0])
         for index, row in enumerate(self.dep_var):
             if index == 0:
-                self.level = row[0]
-                self.trend = 0
+                self.level = self.initial_level
+                self.trend = self.initial_trend
                 self.fitted[0] = row[0]
             else:
+                
+                y_hat = torch.add(self.level, torch.mul(self.phi, self.trend))
                 lprev, bprev = self.level, self.trend
                 self.__smooth_level(row, lprev, bprev)
                 self.__smooth_trend(lprev, bprev)
-                self.fitted[index] = torch.add(self.level, torch.mul(self.phi, bprev))
+                self.fitted[index] = y_hat
         
 
     def predict(self, h):
@@ -145,12 +130,12 @@ class HoltTrend(Smoothing_Model):
             damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i)]))
 
             step_forecast = torch.add(self.level, torch.mul(damp_factor, self.trend))
-            self.forecast = torch.cat(self.forecast, step_forecast)
+            self.forecast = torch.cat((self.forecast, step_forecast))
             
         return self.forecast
     
 class HoltWinters(Smoothing_Model):
-    def __init__(self, dep_var, seasonal="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend="add", seasonal="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
         self.trend = "add"
         self.damped = damped
         self.seasonal = seasonal
@@ -159,16 +144,9 @@ class HoltWinters(Smoothing_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
+        initialize_params = ["alpha", "beta"]
+        if self.damped:
+            initialize_params.append("phi")
 
         self.__initialize_params(initialize_params)
 
@@ -200,7 +178,7 @@ class HoltWinters(Smoothing_Model):
         '''This function calculates the smoothed trend for a given beta and level values'''
 
         self.trend = torch.mul(self.beta, torch.sub(self.level, lprev))
-        self.trend = torch.add(self.trend, torch.mul(torch.sub(1, self.beta), torch.mul(self.phi, torch.mul(self.phi, bprev))))
+        self.trend = torch.add(self.trend, torch.mul(torch.sub(1, self.beta), torch.mul(self.phi, bprev)))
 
     def __smooth_seasonal(self,  y, lprev, bprev, seasonal):
         '''This function calculates the smoothed trend for a given beta and level values'''
@@ -236,28 +214,39 @@ class HoltWinters(Smoothing_Model):
                 self.fitted[0] = row
             
             elif index < self.seasonal_periods:
-                
+
                 seasonal = self.initial_seasonals[index]
+                
+                if self.seasonal == "add":
+                    y_hat = torch.add(seasonal, torch.add(self.level, torch.mul(self.phi, self.trend)))
+                elif self.seasonal == "mul":
+                    y_hat = torch.mul(seasonal, torch.add(self.level, torch.mul(self.phi, self.trend)))
+
                 lprev, bprev = self.level, self.trend
                 self.__smooth_level(row, lprev, bprev, seasonal)
                 self.__smooth_trend(lprev, bprev)
 
                 self.seasonals = torch.cat((self.seasonals, seasonal))
 
-                self.fitted[index] = torch.mul(seasonal, torch.add(self.level, torch.mul(self.phi, self.trend)))
+                self.fitted[index] = y_hat
                 
             
             else:
-                
+
                 seasonal = self.seasonals[-self.seasonal_periods]
+                
+                if self.seasonal == "add":
+                    y_hat = torch.add(seasonal, torch.add(self.level, torch.mul(self.phi, self.trend)))
+                elif self.seasonal == "mul":
+                    y_hat = torch.mul(seasonal, torch.add(self.level, torch.mul(self.phi, self.trend)))
+
                 lprev, bprev = self.level, self.trend
                 self.__smooth_level(row, lprev, bprev, seasonal)
                 self.__smooth_trend(lprev, bprev)
                 self.__smooth_seasonal(row, lprev, bprev, seasonal)
 
-                self.fitted[index] = torch.mul(seasonal, torch.add(self.level, torch.mul(self.phi, self.trend)))
+                self.fitted[index] = y_hat
             
-            print(self.seasonals)
 
     def predict(self, h):
         
@@ -269,7 +258,7 @@ class HoltWinters(Smoothing_Model):
         for i in range(1,h+1):
        
             damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i)]))
-            k = torch.floor((i-1)/self.seasonal_periods)
+            k = math.floor((i-1)/self.seasonal_periods)
 
             step_forecast = torch.add(self.level, torch.mul(damp_factor, self.trend))
 
@@ -278,7 +267,7 @@ class HoltWinters(Smoothing_Model):
             elif self.seasonal == "add":
                 step_forecast = torch.add(step_forecast, self.seasonals[len_seasonal+i-self.seasonal_periods*(k+1)])
             
-            self.forecast = torch.cat(self.forecast, step_forecast)
+            self.forecast = torch.cat((self.forecast, step_forecast))
             
         return self.forecast
 

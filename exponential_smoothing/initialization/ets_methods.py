@@ -3,7 +3,7 @@ import numpy as np
 
 def ANN(dep_var, init_components, params):
 
-    init_lvl = init_components           
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components            
     alpha = params
 
     errors = []
@@ -28,7 +28,7 @@ def ANN(dep_var, init_components, params):
 
 def ANA(dep_var, init_components, params):
     
-    init_lvl, init_seasonals, seasonal_periods = init_components           
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components      
     alpha, gamma = params
 
     errors = []
@@ -76,7 +76,7 @@ def ANA(dep_var, init_components, params):
 
 def ANM(dep_var, init_components, params):
     
-    init_lvl, init_seasonals, seasonal_periods = init_components           
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components          
     alpha, gamma = params
 
     errors = []
@@ -124,7 +124,7 @@ def ANM(dep_var, init_components, params):
 
 def MNM(dep_var, init_components, params):
     
-    init_lvl, init_seasonals, seasonal_periods = init_components           
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components           
     alpha, gamma = params
 
     errors = []
@@ -172,7 +172,7 @@ def MNM(dep_var, init_components, params):
 
 def MNA(dep_var, init_components, params):
     
-    init_lvl, init_seasonals, seasonal_periods = init_components           
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components           
     alpha, gamma = params
 
     errors = []
@@ -221,7 +221,7 @@ def MNA(dep_var, init_components, params):
 
 def MNN(dep_var, init_components, params):
 
-    init_lvl = init_components           
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components            
     alpha = params
 
     errors = []
@@ -549,7 +549,7 @@ def MAA(dep_var, init_components, params):
 
 def AAN(dep_var, init_components, params):
     
-    init_lvl, init_trend = init_components           
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components           
     alpha, beta = params
 
     errors = []
@@ -578,7 +578,7 @@ def AAN(dep_var, init_components, params):
 
 def AAdN(dep_var, init_components, params):
     
-    init_lvl, init_trend = init_components           
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components            
     alpha, beta, phi = params
 
     errors = []
@@ -608,7 +608,7 @@ def AAdN(dep_var, init_components, params):
 
 def MAN(dep_var, init_components, params):
     
-    init_lvl, init_trend = init_components           
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components            
     alpha, beta = params
 
     errors = []
@@ -637,7 +637,7 @@ def MAN(dep_var, init_components, params):
 
 def MAdN(dep_var, init_components, params):
     
-    init_lvl, init_trend = init_components           
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components            
     alpha, beta, phi = params
 
     errors = []

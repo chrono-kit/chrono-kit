@@ -4,7 +4,7 @@ from exponential_smoothing.model import ETS_Model
 
 class ETS_MNM(ETS_Model):
 
-    def __init__(self, dep_var,seasonal_periods=4, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Additive Errors"""
         self.trend = None
         self.damped = False
@@ -15,16 +15,7 @@ class ETS_MNM(ETS_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
+        initialize_params = ["alpha", "gamma"]
 
         self.__initialize_params(initialize_params)
 
@@ -58,10 +49,9 @@ class ETS_MNM(ETS_Model):
 
         self.level = torch.mul(lprev, torch.add(1, torch.mul(self.alpha, error)))
 
-    def __smooth_error(self , y, lprev, error, seasonal):  
+    def __smooth_error(self , y, y_hat):  
 
         """Calculate error"""
-        y_hat = torch.mul(seasonal,lprev)
         self.error = torch.divide(torch.sub(y, y_hat), y_hat)
 
     def __smooth_seasonal(self, seasonal,error,lprev):
@@ -92,21 +82,25 @@ class ETS_MNM(ETS_Model):
             elif index < self.seasonal_periods:
 
                 seasonal = torch.tensor(self.initial_seasonals[index])
-                self.__smooth_error(row, self.level, seasonal)
+                y_hat = torch.mul(self.level,seasonal)
+
+                self.__smooth_error(row, y_hat)
                 self.__smooth_level(self.level,self.error, seasonal)
                 self.seasonals = torch.cat((self.seasonals, seasonal))
 
-                self.fitted[index] = torch.mul(self.level,seasonal)
+                self.fitted[index] = y_hat
 
 
             else:
 
-                seasonal = self.seasonals[-self.seasonal_periods]
-                self.__smooth_error(row, self.level, seasonal)
+                seasonal = torch.tensor(self.initial_seasonals[index])
+                y_hat = torch.mul(self.level,seasonal)
+
+                self.__smooth_error(row, y_hat)
                 self.__smooth_seasonal(seasonal,self.error, self.level)
                 self.__smooth_level(self.level,self.error, seasonal)
 
-                self.fitted[index] = torch.mul(self.level,seasonal)
+                self.fitted[index] = y_hat
 
             self.__update_res_variance(self.error)
 
@@ -141,7 +135,7 @@ class ETS_MNM(ETS_Model):
 
 class ETS_ANM(ETS_Model):
 
-    def __init__(self, dep_var,seasonal_periods=4, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Additive Errors"""
         self.trend = None
         self.damped = False
@@ -152,16 +146,7 @@ class ETS_ANM(ETS_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
+        initialize_params = ["alpha", "gamma"]
 
         self.__initialize_params(initialize_params)
 
@@ -280,7 +265,7 @@ class ETS_ANM(ETS_Model):
 
 class ETS_AAN(ETS_Model):
 
-    def __init__(self, dep_var, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Additive Errors"""
         self.trend = "add"
         self.damped = damped
@@ -291,17 +276,9 @@ class ETS_AAN(ETS_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
-
+        initialize_params = ["alpha", "beta"]
+        if self.damped:
+            initialize_params.append("phi")
         self.__initialize_params(initialize_params)
 
         self.residuals = torch.tensor([])
@@ -434,7 +411,7 @@ class ETS_AAN(ETS_Model):
 
 class ETS_MAN(ETS_Model):
 
-    def __init__(self, dep_var, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Additive Errors"""
         
         self.trend = "add"
@@ -446,17 +423,9 @@ class ETS_MAN(ETS_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
-
+        initialize_params = ["alpha", "beta"]
+        if self.damped:
+            initialize_params.append("phi")
         self.__initialize_params(initialize_params)
 
         self.residuals = torch.tensor([])
@@ -559,7 +528,7 @@ class ETS_MAN(ETS_Model):
 
 class ETS_MNA(ETS_Model):
 
-    def __init__(self, dep_var,seasonal_periods=4, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Additive Errors"""
         self.trend = None
         self.damped = False
@@ -570,17 +539,7 @@ class ETS_MNA(ETS_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
-
+        initialize_params = ["alpha", "gamma"]
         self.__initialize_params(initialize_params)
 
         self.residuals = torch.tensor([])
@@ -700,7 +659,7 @@ class ETS_MNA(ETS_Model):
         
 class ETS_ANA(ETS_Model):
 
-    def __init__(self, dep_var,seasonal_periods=4, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Additive Errors"""
         self.trend = None
         self.damped = False
@@ -711,17 +670,7 @@ class ETS_ANA(ETS_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
-
+        initialize_params = ["alpha", "gamma"]
         self.__initialize_params(initialize_params)
 
         self.residuals = torch.tensor([])
@@ -846,7 +795,7 @@ class ETS_ANA(ETS_Model):
 
 
 class ETS_MAA(ETS_Model):
-    def __init__(self, dep_var, seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
 
         """Implementation of Holt Winters Method with Damped Trend, Multiplicative Seasonality and Additive Errors"""
         self.trend = "add"
@@ -858,17 +807,9 @@ class ETS_MAA(ETS_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
-
+        initialize_params = ["alpha", "beta", "gamma"]
+        if self.damped:
+            initialize_params.append("phi")
         self.__initialize_params(initialize_params)
 
         self.residuals = torch.tensor([])
@@ -990,7 +931,7 @@ class ETS_MAA(ETS_Model):
             return self.forecast
 
 class ETS_AAA(ETS_Model):
-    def __init__(self, dep_var, seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
 
         self.trend = "add"
         self.damped = damped
@@ -1001,17 +942,9 @@ class ETS_AAA(ETS_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
-
+        initialize_params = ["alpha", "beta", "gamma"]
+        if self.damped:
+            initialize_params.append("phi")
         self.__initialize_params(initialize_params)
 
         self.residuals = torch.tensor([])
@@ -1096,12 +1029,12 @@ class ETS_AAA(ETS_Model):
 
         self.error = torch.sub(y, y_hat)
 
-    def __smooth_seasonal(self, seasonal, error):
-        seasonal = torch.add(seasonal, torch.mul(self.gamma, error))
+    def __smooth_seasonal(self, seasonal):
+        seasonal = torch.add(seasonal, torch.mul(self.gamma, self.error))
         self.seasonals = torch.cat((self.seasonals, seasonal))
 
-    def __smooth_trend(self, error, bprev):
-        self.trend = torch.add(torch.mul(error, self.beta), torch.mul(self.phi, bprev))
+    def __smooth_trend(self, bprev):
+        self.trend = torch.add(torch.mul(self.error, self.beta), torch.mul(self.phi, bprev))
 
     def fit(self):
 
@@ -1125,18 +1058,18 @@ class ETS_AAA(ETS_Model):
                 seasonal = torch.tensor(self.initial_seasonals[index])
                 self.__smooth_error(row, self.level, self.trend, seasonal)
                 lprev, bprev = self.level, self.trend
-                self.__smooth_level(self.error, lprev, bprev)
-                self.__smooth_trend(self.error, lprev, bprev)
-                self.seasonals = torch.cat((self.seasonals, [seasonal]))
+                self.__smooth_level(lprev, bprev)
+                self.__smooth_trend(bprev)
+                self.seasonals = torch.cat((self.seasonals, seasonal))
                 self.fitted[index] = torch.add(self.level, torch.add(self.trend, seasonal))
             else:
                 
                 seasonal = self.seasonals[-self.seasonal_periods]
                 self.__smooth_error(row, self.level, self.trend, seasonal)
-                self.__smooth_seasonal(self.error)
+                self.__smooth_seasonal(seasonal)
                 lprev, bprev = self.level, self.trend
-                self.__smooth_level(self.error, lprev, bprev)
-                self.__smooth_trend(self.error, lprev, bprev)
+                self.__smooth_level(lprev, bprev)
+                self.__smooth_trend(bprev)
                 self.fitted[index] = torch.add(self.level, torch.add(self.trend, seasonal))
             self.__update_res_variance(self.error)
 
@@ -1147,6 +1080,8 @@ class ETS_AAA(ETS_Model):
             Notice that the prediction equation is the same as simple
             exponential smoothing
         """
+
+        self.forecast = torch.tensor([])
 
         upper_bounds = torch.tensor([])
         lower_bounds = torch.tensor([])
@@ -1176,7 +1111,7 @@ class ETS_AAA(ETS_Model):
 
 class ETS_ANN(ETS_Model):
 
-    def __init__(self, dep_var, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Additive Errors"""
         
         self.trend = None
@@ -1188,17 +1123,8 @@ class ETS_ANN(ETS_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
-
+        initialize_params = ["alpha"]
+       
         self.__initialize_params(initialize_params)
 
         self.residuals = torch.tensor([])
@@ -1302,7 +1228,7 @@ class ETS_ANN(ETS_Model):
 
 class ETS_AAM(ETS_Model):
 
-    def __init__(self, dep_var, seasonal_periods=4, damped=False, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
 
         """Implementation of Holt Winters Method with Damped Trend, Multiplicative Seasonality and Additive Errors"""
 
@@ -1315,17 +1241,9 @@ class ETS_AAM(ETS_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
-
+        initialize_params = ["alpha", "beta", "gamma"]
+        if self.damped:
+            initialize_params.append("phi")
         self.__initialize_params(initialize_params)
 
         self.residuals = torch.tensor([])
@@ -1394,13 +1312,13 @@ class ETS_AAM(ETS_Model):
                 self.level = self.initial_level
                 self.trend = self.initial_trend
                 self.error = torch.tensor(0, dtype=torch.float32)
-                seasonal = torch.tensor(self.initial_seasonals[0])
+                seasonal = self.initial_seasonals[0]
                 self.seasonals = torch.tensor([seasonal])
                 self.fitted[0] = row
             
             elif index < self.seasonal_periods:
                 
-                seasonal = torch.tensor(self.initial_seasonals[index])
+                seasonal = self.initial_seasonals[index]
                 self.__smooth_error(row, self.level, self.trend, seasonal)
                 self.__smooth_level(self.error, self.level, self.trend, seasonal)
                 self.__smooth_trend(self.error, self.trend, seasonal)
@@ -1478,7 +1396,7 @@ class ETS_AAM(ETS_Model):
 
 class ETS_MNN(ETS_Model):
 
-    def __init__(self, dep_var, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
         """Implementation of Simple Exponential Smoothing with Multiplicative Errors"""
         self.trend = None
         self.damped = False
@@ -1489,17 +1407,7 @@ class ETS_MNN(ETS_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
-
+        initialize_params = ["alpha"]
         self.__initialize_params(initialize_params)
 
         self.residuals = torch.tensor([])
@@ -1606,7 +1514,7 @@ class ETS_MNN(ETS_Model):
 
 class ETS_MAM(ETS_Model):
 
-    def __init__(self, dep_var, seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+    def __init__(self, dep_var, trend=None, seasonal=None, error_type="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
 
         self.trend = "add"
         self.damped = damped
@@ -1617,17 +1525,9 @@ class ETS_MAM(ETS_Model):
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         super().__init__(dep_var, self.trend, self.seasonal, self.error_type, self.seasonal_periods, self.damped, **kwargs)
         
-        initialize_params = []
-        for param in self.params:
-
-            if param in kwargs:
-                continue
-            else:
-                if param == "phi" and not self.damped:
-                    continue
-                else:
-                    initialize_params.append(param)
-
+        initialize_params = ["alpha", "beta", "gamma"]
+        if self.damped:
+            initialize_params.append("phi")
         self.__initialize_params(initialize_params)
 
         self.residuals = torch.tensor([])

@@ -2,8 +2,9 @@ import numpy as np
 
 def simple_exp(dep_var, init_components, params):
 
-    init_lvl = init_components           
-    alpha = params
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components          
+
+    alpha = params[0]
 
     errors = []
 
@@ -18,6 +19,7 @@ def simple_exp(dep_var, init_components, params):
 
             y_hat = lvl
             error = row.numpy()[0] - y_hat
+            
 
             lprev = lvl
             lvl = alpha*row.numpy()[0] + (1-alpha)*lprev
@@ -28,7 +30,7 @@ def simple_exp(dep_var, init_components, params):
 
 def holt_trend(dep_var, init_components, params):
     
-    init_lvl, init_trend = init_components           
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components           
     alpha, beta = params
 
     errors = []
@@ -57,7 +59,7 @@ def holt_trend(dep_var, init_components, params):
 
 def holt_damped_trend(dep_var, init_components, params):
     
-    init_lvl, init_trend = init_components           
+    init_lvl, init_trend, init_seasonals, seasonal_periods = init_components           
     alpha, beta, phi = params
 
     errors = []
@@ -111,7 +113,7 @@ def hw_add(dep_var, init_components, params):
             lprev, bprev = lvl, trend
 
             seasonal_t = (1-gamma)*seasonal + gamma*(row.numpy()[0]-lprev-bprev)
-            lvl = alpha*(row.numpy()[0]-seasonal) + (1-alpha)*(lprev, bprev)
+            lvl = alpha*(row.numpy()[0]-seasonal) + (1-alpha)*(lprev+ bprev)
             trend = beta*(lvl - lprev) + (1-beta)*bprev
 
             seasonals.append(seasonal_t)
@@ -127,7 +129,7 @@ def hw_add(dep_var, init_components, params):
             lprev, bprev = lvl, trend
 
             seasonal_t = (1-gamma)*seasonal + gamma*(row.numpy()[0]-lprev-bprev)
-            lvl = alpha*(row.numpy()[0]-seasonal) + (1-alpha)*(lprev, bprev)
+            lvl = alpha*(row.numpy()[0]-seasonal) + (1-alpha)*(lprev+ bprev)
             trend = beta*(lvl - lprev) + (1-beta)*bprev
 
             seasonals.append(seasonal_t)
@@ -213,7 +215,7 @@ def hw_mul(dep_var, init_components, params):
             lprev, bprev = lvl, trend
 
             seasonal_t = (1-gamma)*seasonal + gamma*(row.numpy()[0]/(lprev+bprev))
-            lvl = alpha*(row.numpy()[0]/seasonal) + (1-alpha)*(lprev + phi*bprev)
+            lvl = alpha*(row.numpy()[0]/seasonal) + (1-alpha)*(lprev + bprev)
             trend = beta*(lvl - lprev) + (1-beta)*bprev
 
             seasonals.append(seasonal_t)
@@ -229,7 +231,7 @@ def hw_mul(dep_var, init_components, params):
             lprev, bprev = lvl, trend
 
             seasonal_t = (1-gamma)*seasonal + gamma*(row.numpy()[0]/(lprev+bprev))
-            lvl = alpha*(row.numpy()[0]/seasonal) + (1-alpha)*(lprev + phi*bprev)
+            lvl = alpha*(row.numpy()[0]/seasonal) + (1-alpha)*(lprev + bprev)
             trend = beta*(lvl - lprev) + (1-beta)*bprev
 
             seasonals.append(seasonal_t)

@@ -91,7 +91,7 @@ class Smoothing_Model(Model):
 
         self.init_components["level"] = self.initial_level,
         self.init_components["trend"] = self.initial_trend,
-        self.init_components["seasonal"] = self.initial_seasonals
+        self.init_components["seasonal"] = np.expand_dims(self.initial_seasonals, axis=-1)
 
         init_params = {param: self.params[param] for param in initialize_params}
 
@@ -171,7 +171,7 @@ class ETS_Model(Model):
 
         self.init_components["level"] = self.initial_level,
         self.init_components["trend"] = self.initial_trend,
-        self.init_components["seasonal"] = self.initial_seasonals
+        self.init_components["seasonal"] = np.expand_dims(self.initial_seasonals, axis=-1)
 
         init_params = {param: self.params[param] for param in initialize_params}
 
