@@ -210,7 +210,7 @@ class ETS_Model(Model):
     def future_sample_paths(self, h, confidence):
         
         q1 = (1-confidence)/2
-        q2 = 1 - q2
+        q2 = 1 - q1
 
         loc = self.residual_mean
         scale = self.residual_variance
