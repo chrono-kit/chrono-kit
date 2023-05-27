@@ -337,7 +337,7 @@ def MAdA(dep_var, init_components, params):
             seasonal = seasonals[index-seasonal_periods]  
 
             y_hat = lvl + phi*trend + seasonal
-            error = (row.numpy()[0] - y_hat)/y_hat(row.numpy()[0] - y_hat)/y_hat
+            error = (row.numpy()[0] - y_hat)/y_hat
 
             lprev, bprev = lvl, trend
 
