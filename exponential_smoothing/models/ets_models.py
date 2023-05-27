@@ -23,9 +23,9 @@ class ETS_ANN(ETS_Model):
 
         self.residuals = torch.tensor([])
     
-    def __calculate_conf_level(self):
+    def __calculate_conf_level(self, conf):
 
-        self.c = super().calculate_conf_level()
+        self.c = super().calculate_conf_level(conf)
 
     def __initialize_params(self, initialize_params):
 
@@ -37,7 +37,7 @@ class ETS_ANN(ETS_Model):
     
     def __update_res_variance(self, error):
 
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
 
     def __get_confidence_interval(self, h):
         
@@ -83,13 +83,16 @@ class ETS_ANN(ETS_Model):
             
             self.__update_res_variance(self.error)
     
-    def predict(self, h, return_confidence=False):
+    def predict(self, h, confidence = None):
 
         """Predict the next h-th value of the target variable
             Notice that the prediction equation is the same as simple
             exponential smoothing
         """
 
+        if confidence:
+            self.calculate_conf_level(confidence)
+            
         self.forecast = torch.tensor([])
         upper_bounds = torch.tensor([])
         lower_bounds = torch.tensor([])
@@ -100,12 +103,12 @@ class ETS_ANN(ETS_Model):
 
             self.forecast = torch.cat((self.forecast, step_forecast))
 
-            if return_confidence:
+            if confidence:
                 fc_var = self.__get_confidence_interval(h=i)
                 upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
                 lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
-        if return_confidence:
+        if confidence:
             return self.forecast, (upper_bounds, lower_bounds)
         else:
             return self.forecast
@@ -131,9 +134,9 @@ class ETS_AAN(ETS_Model):
 
         self.residuals = torch.tensor([])
     
-    def __calculate_conf_level(self):
+    def __calculate_conf_level(self, conf):
 
-        self.c = super().calculate_conf_level()
+        self.c = super().calculate_conf_level(conf)
 
     def __initialize_params(self, initialize_params):
 
@@ -146,7 +149,7 @@ class ETS_AAN(ETS_Model):
     
     def __update_res_variance(self, error):
 
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
         
     def __get_confidence_interval(self, h): 
 
@@ -219,22 +222,25 @@ class ETS_AAN(ETS_Model):
             
             else:
                 
-                y_hat = torch.add(self.level, self.trend)
+                y_hat = torch.add(self.level, torch.mul(self.phi,self.trend))
                 self.__smooth_error(row, y_hat)
                 lprev, bprev = self.level, self.trend
                 self.__smooth_level(lprev, bprev)
-                self.__smooth_trend(lprev)
+                self.__smooth_trend(bprev)
                 self.fitted[index] = y_hat
             
             self.__update_res_variance(self.error)
     
-    def predict(self, h, return_confidence=False):
+    def predict(self, h, confidence = None):
 
         """Predict the next h-th value of the target variable
             Notice that the prediction equation is the same as simple
             exponential smoothing
         """
 
+        if confidence:
+            self.calculate_conf_level(confidence)
+            
         self.forecast = torch.tensor([])
         upper_bounds = torch.tensor([])
         lower_bounds = torch.tensor([])
@@ -247,13 +253,13 @@ class ETS_AAN(ETS_Model):
 
             self.forecast = torch.cat((self.forecast, step_forecast))
 
-            if return_confidence:
+            if confidence:
                 fc_var = self.__get_confidence_interval(h=i)
                 upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
                 lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
 
-        if return_confidence:
+        if confidence:
             return self.forecast, (upper_bounds, lower_bounds)
         else:
             return self.forecast
@@ -277,9 +283,9 @@ class ETS_ANA(ETS_Model):
 
         self.residuals = torch.tensor([])
     
-    def __calculate_conf_level(self):
+    def __calculate_conf_level(self, conf):
 
-        self.c = super().calculate_conf_level()
+        self.c = super().calculate_conf_level(conf)
 
     def __initialize_params(self, initialize_params):
 
@@ -292,7 +298,7 @@ class ETS_ANA(ETS_Model):
     
     def __update_res_variance(self, error):
 
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
         
     def __get_confidence_interval(self, h):
 
@@ -364,13 +370,16 @@ class ETS_ANA(ETS_Model):
             
             self.__update_res_variance(self.error)
     
-    def predict(self, h, return_confidence=False):
+    def predict(self, h, confidence = None):
 
         """Predict the next h-th value of the target variable
             Notice that the prediction equation is the same as simple
             exponential smoothing
         """
         
+        if confidence:
+            self.calculate_conf_level(confidence)
+            
         self.forecast = torch.tensor([])
         upper_bounds = torch.tensor([])
         lower_bounds = torch.tensor([])
@@ -385,12 +394,12 @@ class ETS_ANA(ETS_Model):
 
             self.forecast = torch.cat((self.forecast, step_forecast))
 
-            if return_confidence:
+            if confidence:
                 fc_var = self.__get_confidence_interval(h=i)
                 upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
                 lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
-        if return_confidence:
+        if confidence:
             return self.forecast, (upper_bounds, lower_bounds)
         else:
             return self.forecast
@@ -416,9 +425,9 @@ class ETS_AAA(ETS_Model):
 
         self.residuals = torch.tensor([])
     
-    def __calculate_conf_level(self):
+    def __calculate_conf_level(self, conf):
 
-        self.c = super().calculate_conf_level()
+        self.c = super().calculate_conf_level(conf)
 
     def __initialize_params(self, initialize_params):
 
@@ -432,7 +441,7 @@ class ETS_AAA(ETS_Model):
     
     def __update_res_variance(self, error):
 
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
         
     def __get_confidence_interval(self, h):
 
@@ -506,7 +515,7 @@ class ETS_AAA(ETS_Model):
         y_t = l_{t-1} + b_{t-1} + s_{t-m}+ e_t
         l_t = l_{t-1} + b_{t-1} + alpha*e_t
         """
-        self.fitted = np.zeros(self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.dep_var.shape)
 
         for index, row in enumerate(self.dep_var):
             if index == 0:
@@ -540,13 +549,16 @@ class ETS_AAA(ETS_Model):
 
             self.__update_res_variance(self.error)
 
-    def predict(self, h, return_confidence=False):
+    def predict(self, h, confidence = None):
 
         """Predict the next h-th value of the target variable
             Notice that the prediction equation is the same as simple
             exponential smoothing
         """
 
+        if confidence:
+            self.calculate_conf_level(confidence)
+            
         self.forecast = torch.tensor([])
 
         upper_bounds = torch.tensor([])
@@ -566,13 +578,13 @@ class ETS_AAA(ETS_Model):
 
             self.forecast = torch.cat((self.forecast, step_forecast))
 
-            if return_confidence:
+            if confidence:
                 fc_var = self.__get_confidence_interval(h=i)
                 upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
                 lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
 
-        if return_confidence:
+        if confidence:
             return self.forecast, (upper_bounds, lower_bounds)
         else:
             return self.forecast
@@ -597,9 +609,9 @@ class ETS_ANM(ETS_Model):
 
         self.residuals = torch.tensor([])
     
-    def __calculate_conf_level(self):
+    def __calculate_conf_level(self, conf):
 
-        self.c = super().calculate_conf_level()
+        self.c = super().calculate_conf_level(conf)
 
     def __initialize_params(self, initialize_params):
 
@@ -612,12 +624,11 @@ class ETS_ANM(ETS_Model):
     
     def __update_res_variance(self, error):
 
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
         
-    def __get_confidence_interval(self, h):
+    def __get_confidence_interval(self, h, conf):
 
-        #no func
-        return None
+        return super().future_sample_paths(h, conf)
 
     def __smooth_level(self,lprev, seasonal):
         """Calculate the level"""
@@ -644,7 +655,7 @@ class ETS_ANM(ETS_Model):
         s_t = s_{t-m} + gamma*e_t/l_{t-1}
         """
 
-        self.fitted = np.zeros(self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.dep_var.shape)
 
         for index, row in enumerate(self.dep_var):
 
@@ -677,7 +688,7 @@ class ETS_ANM(ETS_Model):
             
             self.__update_res_variance(self.error)
     
-    def predict(self, h, return_confidence=False):
+    def predict(self, h, confidence = None):
 
         """Predict the next h-th value of the target variable
             Notice that the prediction equation is the same as simple
@@ -685,8 +696,6 @@ class ETS_ANM(ETS_Model):
         """
 
         self.forecast = torch.tensor([])
-        upper_bounds = torch.tensor([])
-        lower_bounds = torch.tensor([])
         
         len_s = self.seasonals.shape[0]
 
@@ -697,13 +706,12 @@ class ETS_ANM(ETS_Model):
             step_forecast = torch.mul(self.level, self.seasonals[len_s+i-self.seasonal_periods*(k+1)])
 
             self.forecast = torch.cat((self.forecast, step_forecast))
-
-            if return_confidence:
-                fc_var = self.__get_confidence_interval(h=i)
-                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
-                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
-        if return_confidence:
+        if confidence:
+            bounds = self.__get_confidence_interval(h, conf=confidence)
+            upper_bounds = torch.add(step_forecast, bounds)
+            lower_bounds = torch.sub(step_forecast, bounds)
+
             return self.forecast, (upper_bounds, lower_bounds)
         else:
             return self.forecast
@@ -731,9 +739,9 @@ class ETS_AAM(ETS_Model):
 
         self.residuals = torch.tensor([])
     
-    def __calculate_conf_level(self):
+    def __calculate_conf_level(self, conf):
 
-        self.c = super().calculate_conf_level()
+        self.c = super().calculate_conf_level(conf)
 
     def __initialize_params(self, initialize_params):
 
@@ -747,12 +755,12 @@ class ETS_AAM(ETS_Model):
     
     def __update_res_variance(self, error):
 
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
         
-    def __get_confidence_interval(self, h):
+    def __get_confidence_interval(self, h, conf):
         
         ###No known equation for this method, will implement later
-        pass
+        return super().future_sample_paths(h, conf)
     
     def __smooth_level(self, lprev, bprev, seasonal):
         """Calculate the level"""
@@ -825,14 +833,12 @@ class ETS_AAM(ETS_Model):
             self.__update_res_variance(self.error)
 
     
-    def predict(self, h, return_confidence = False):
+    def predict(self, h, confidence = None):
 
         """Predict the next h-th value of the target variable
            This is again the same as the simple exponential smoothing forecast"""
-        
+            
         self.forecast = torch.tensor([])
-        upper_bounds = torch.tensor([])
-        lower_bounds = torch.tensor([])
         
         len_s = self.seasonals.shape[0]
 
@@ -845,12 +851,12 @@ class ETS_AAM(ETS_Model):
 
             self.forecast = torch.cat((self.forecast, step_forecast))
 
-            if return_confidence:
-                fc_var = self.__get_confidence_interval(h=i)
-                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
-                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
-        if return_confidence:
+        if confidence:
+            bounds = self.__get_confidence_interval(h, conf=confidence)
+            upper_bounds = torch.add(step_forecast, bounds)
+            lower_bounds = torch.sub(step_forecast, bounds)
+            
             return self.forecast, (upper_bounds, lower_bounds)
         else:
             return self.forecast
@@ -874,9 +880,9 @@ class ETS_MNN(ETS_Model):
 
         self.residuals = torch.tensor([])
     
-    def __calculate_conf_level(self):
+    def __calculate_conf_level(self, conf):
 
-        self.c = super().calculate_conf_level()
+        self.c = super().calculate_conf_level(conf)
 
     def __initialize_params(self, initialize_params):
 
@@ -888,14 +894,11 @@ class ETS_MNN(ETS_Model):
     
     def __update_res_variance(self, error):
 
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
 
-    def __get_confidence_interval(self, h):
+    def __get_confidence_interval(self, h, conf):
         
-        fc_var = torch.add(1 ,torch.mul(torch.square(self.alpha),  h-1))
-        fc_var = torch.mul(self.residual_variance, fc_var)
-
-        return torch.mul(self.c, fc_var)
+        return super().future_sample_paths(h, conf)
     
     def __smooth_level(self, lprev):
         """Calculate the level"""
@@ -932,14 +935,12 @@ class ETS_MNN(ETS_Model):
             
             self.__update_res_variance(self.error)
     
-    def predict(self, h, return_confidence=False):
+    def predict(self, h, confidence = None):
 
         """Predict the next h-th value of the target variable
            This is again the same as the simple exponential smoothing forecast"""
-
+            
         self.forecast = torch.tensor([])
-        upper_bounds = torch.tensor([])
-        lower_bounds = torch.tensor([])
 
         for i in range(1,h+1):
             
@@ -947,12 +948,12 @@ class ETS_MNN(ETS_Model):
 
             self.forecast = torch.cat((self.forecast, step_forecast))
 
-            if return_confidence:
-                fc_var = self.__get_confidence_interval(h=i)
-                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
-                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
-        if return_confidence:
+        if confidence:
+            bounds = self.__get_confidence_interval(h, conf=confidence)
+            upper_bounds = torch.add(step_forecast, bounds)
+            lower_bounds = torch.sub(step_forecast, bounds)
+            
             return self.forecast, (upper_bounds, lower_bounds)
         else:
             return self.forecast
@@ -979,9 +980,9 @@ class ETS_MAN(ETS_Model):
 
         self.residuals = torch.tensor([])
     
-    def __calculate_conf_level(self):
+    def __calculate_conf_level(self, conf):
 
-        self.c = super().calculate_conf_level()
+        self.c = super().calculate_conf_level(conf)
 
     def __initialize_params(self, initialize_params):
 
@@ -994,12 +995,12 @@ class ETS_MAN(ETS_Model):
     
     def __update_res_variance(self, error):
 
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
         
-    def __get_confidence_interval(self, h): 
+    def __get_confidence_interval(self, h, conf): 
 
         #no function
-        return None
+        return super().future_sample_paths(h, conf)
 
     def __smooth_level(self, lprev,bprev): #done
         """Calculate the level"""
@@ -1025,27 +1026,29 @@ class ETS_MAN(ETS_Model):
         b_t = b_{t-1}+beta*(l_{t-1}+b_{t-1})*e_t
         """
 
-        self.fitted = np.zeros(self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.dep_var.shape)
 
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
-                self.level = row[0]
-                self.trend=row[0]
+                self.level = self.initial_level
+                self.trend = self.initial_trend
                 self.error = torch.tensor(0, dtype=torch.float32)
                 self.fitted[0] = row
             
             else:
-                y_hat = torch.add(self.level, torch.mul(self.phi, self.trend))
+                
+                y_hat = torch.add(self.level, torch.mul(self.phi,self.trend))
                 self.__smooth_error(row, y_hat)
                 lprev, bprev = self.level, self.trend
-                self.__smooth_level(lprev,bprev)
+                self.__smooth_level(lprev, bprev)
                 self.__smooth_trend(bprev, lprev)
                 self.fitted[index] = y_hat
             
             self.__update_res_variance(self.error)
     
-    def predict(self, h, return_confidence=False):
+    
+    def predict(self, h, confidence = None):
 
         """Predict the next h-th value of the target variable
             Notice that the prediction equation is the same as simple
@@ -1053,8 +1056,6 @@ class ETS_MAN(ETS_Model):
         """
 
         self.forecast = torch.tensor([])
-        upper_bounds = torch.tensor([])
-        lower_bounds = torch.tensor([])
 
         for i in range(1,h+1):
             
@@ -1062,15 +1063,13 @@ class ETS_MAN(ETS_Model):
 
             step_forecast = torch.add(self.level, torch.mul(damp_factor, self.trend))
 
-            self.forecast = torch.cat((self.forecast, step_forecast))
+            self.forecast = torch.cat((self.forecast, step_forecast))            
 
-            if return_confidence:
-                fc_var = self.__get_confidence_interval(h=i)
-                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
-                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
-                
-
-        if return_confidence:
+        if confidence:
+            bounds = self.__get_confidence_interval(h, conf=confidence)
+            upper_bounds = torch.add(step_forecast, bounds)
+            lower_bounds = torch.sub(step_forecast, bounds)
+            
             return self.forecast, (upper_bounds, lower_bounds)
         else:
             return self.forecast
@@ -1094,9 +1093,9 @@ class ETS_MNA(ETS_Model):
 
         self.residuals = torch.tensor([])
     
-    def __calculate_conf_level(self):
+    def __calculate_conf_level(self, conf):
 
-        self.c = super().calculate_conf_level()
+        self.c = super().calculate_conf_level(conf)
 
     def __initialize_params(self, initialize_params):
 
@@ -1109,12 +1108,12 @@ class ETS_MNA(ETS_Model):
     
     def __update_res_variance(self, error):
 
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
         
-    def __get_confidence_interval(self, h): 
+    def __get_confidence_interval(self, h, conf): 
 
         #no function
-        return None
+        return super().future_sample_paths(h, conf)
 
     def __smooth_level(self,lprev,seasonal):
         """Calculate the level"""
@@ -1174,17 +1173,15 @@ class ETS_MNA(ETS_Model):
             
             self.__update_res_variance(self.error)
     
-    def predict(self, h, return_confidence=False):
+    def predict(self, h, confidence = None):
 
         """Predict the next h-th value of the target variable
             Notice that the prediction equation is the same as simple
             exponential smoothing
         """
-        
+            
         self.forecast = torch.tensor([])
-        upper_bounds = torch.tensor([])
-        lower_bounds = torch.tensor([])
-        
+
         len_s = self.seasonals.shape[0]
 
         for i in range(1,h+1):
@@ -1194,13 +1191,12 @@ class ETS_MNA(ETS_Model):
             step_forecast = torch.add(self.level, self.seasonals[len_s+i-self.seasonal_periods*(k+1)])
 
             self.forecast = torch.cat((self.forecast, step_forecast))
-
-            if return_confidence:
-                fc_var = self.__get_confidence_interval(h=i)
-                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
-                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
-        if return_confidence:
+        if confidence:
+            bounds = self.__get_confidence_interval(h, conf=confidence)
+            upper_bounds = torch.add(step_forecast, bounds)
+            lower_bounds = torch.sub(step_forecast, bounds)
+            
             return self.forecast, (upper_bounds, lower_bounds)
         else:
             return self.forecast
@@ -1226,9 +1222,9 @@ class ETS_MAA(ETS_Model):
 
         self.residuals = torch.tensor([])
     
-    def __calculate_conf_level(self):
+    def __calculate_conf_level(self, conf):
 
-        self.c = super().calculate_conf_level()
+        self.c = super().calculate_conf_level(conf)
 
     def __initialize_params(self, initialize_params):
 
@@ -1242,12 +1238,12 @@ class ETS_MAA(ETS_Model):
     
     def __update_res_variance(self, error):
 
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
 
-    def __get_confidence_interval(self, h):
+    def __get_confidence_interval(self, h, conf):
 
         #NO EQUATION
-        return None
+        return super().future_sample_paths(h, conf)
     
     def __smooth_level(self, lprev,bprev,seasonal):
         """Calculate the level"""
@@ -1274,7 +1270,7 @@ class ETS_MAA(ETS_Model):
         y_t = l_{t-1} + b_{t-1} + s_{t-m}+ e_t
         l_t = l_{t-1} + b_{t-1} + alpha*e_t
         """
-        self.fitted = np.zeros(self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.dep_var.shape)
 
         for index, row in enumerate(self.dep_var):
             if index == 0:
@@ -1308,7 +1304,7 @@ class ETS_MAA(ETS_Model):
 
             self.__update_res_variance(self.error)
 
-    def predict(self, h, return_confidence=False):
+    def predict(self, h, confidence = None):
 
         """Predict the next h-th value of the target variable
             Notice that the prediction equation is the same as simple
@@ -1317,30 +1313,23 @@ class ETS_MAA(ETS_Model):
 
         self.forecast = torch.tensor([])
 
-        upper_bounds = torch.tensor([])
-        lower_bounds = torch.tensor([])
-
         len_s = self.seasonals.shape[0]
 
         for i in range(1,h+1):
             
             damp_factor = torch.sum(torch.tensor([torch.pow(self.phi, x+1) for x in range(i+1)]))
-
             k = int((h-1)/self.seasonal_periods)
-            
 
             step_forecast = torch.add(self.level, torch.mul(damp_factor, self.trend))
             step_forecast = torch.add(step_forecast, self.seasonals[len_s+i-self.seasonal_periods*(k+1)])
 
             self.forecast = torch.cat((self.forecast, step_forecast))
 
-            if return_confidence:
-                fc_var = self.__get_confidence_interval(h=i)
-                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
-                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
-                
-
-        if return_confidence:
+        if confidence:
+            bounds = self.__get_confidence_interval(h, conf=confidence)
+            upper_bounds = torch.add(step_forecast, bounds)
+            lower_bounds = torch.sub(step_forecast, bounds)
+            
             return self.forecast, (upper_bounds, lower_bounds)
         else:
             return self.forecast
@@ -1365,9 +1354,9 @@ class ETS_MNM(ETS_Model):
 
         self.residuals = torch.tensor([])
     
-    def __calculate_conf_level(self):
+    def __calculate_conf_level(self, conf):
 
-        self.c = super().calculate_conf_level()
+        self.c = super().calculate_conf_level(conf)
 
     def __initialize_params(self, initialize_params):
 
@@ -1380,11 +1369,11 @@ class ETS_MNM(ETS_Model):
     
     def __update_res_variance(self, error):
 
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
         
-    def __get_confidence_interval(self, h):
+    def __get_confidence_interval(self, h, conf):
         #no func
-        return None
+        return super().future_sample_paths(h, conf)
 
     def __smooth_level(self, lprev, seasonal):
         """Calculate the level"""
@@ -1409,7 +1398,7 @@ class ETS_MNM(ETS_Model):
         s_t = s_{t-m} + gamma*e_t/l_{t-1}
         """
 
-        self.fitted = np.zeros(self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.dep_var.shape)
 
         for index, row in enumerate(self.dep_var):
 
@@ -1442,16 +1431,14 @@ class ETS_MNM(ETS_Model):
             
             self.__update_res_variance(self.error)
     
-    def predict(self, h, return_confidence=False):
+    def predict(self, h, confidence = None):
 
         """Predict the next h-th value of the target variable
             Notice that the prediction equation is the same as simple
             exponential smoothing
         """
-
+            
         self.forecast = torch.tensor([])
-        upper_bounds = torch.tensor([])
-        lower_bounds = torch.tensor([])
         
         len_s = self.seasonals.shape[0]
 
@@ -1462,13 +1449,12 @@ class ETS_MNM(ETS_Model):
             step_forecast = torch.mul(self.level, self.seasonals[len_s+i-self.seasonal_periods*(k+1)])
 
             self.forecast = torch.cat((self.forecast, step_forecast))
-
-            if return_confidence:
-                fc_var = self.__get_confidence_interval(h=i)
-                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
-                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
                 
-        if return_confidence:
+        if confidence:
+            bounds = self.__get_confidence_interval(h, conf=confidence)
+            upper_bounds = torch.add(step_forecast, bounds)
+            lower_bounds = torch.sub(step_forecast, bounds)
+            
             return self.forecast, (upper_bounds, lower_bounds)
         else:
             return self.forecast
@@ -1494,9 +1480,9 @@ class ETS_MAM(ETS_Model):
 
         self.residuals = torch.tensor([])
     
-    def __calculate_conf_level(self):
+    def __calculate_conf_level(self, conf):
 
-        self.c = super().calculate_conf_level()
+        self.c = super().calculate_conf_level(conf)
 
     def __initialize_params(self, initialize_params):
 
@@ -1510,12 +1496,12 @@ class ETS_MAM(ETS_Model):
     
     def __update_res_variance(self, error):
 
-        self.residuals, self.residual_variance = super().update_res_variance(self.residuals, error)
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
         
-    def __get_confidence_interval(self, h):
+    def __get_confidence_interval(self, h, conf):
         
         ###No known equation for this method, will implement later
-        pass
+        return super().future_sample_paths(h, conf)
     
     def __smooth_level(self, lprev, bprev):
         """Calculate the level"""
@@ -1582,14 +1568,12 @@ class ETS_MAM(ETS_Model):
             self.__update_res_variance(self.error)
 
     
-    def predict(self, h, return_confidence = False):
+    def predict(self, h, confidence = None):
 
         """Predict the next h-th value of the target variable
            This is again the same as the simple exponential smoothing forecast"""
-        
+
         self.forecast = torch.tensor([])
-        upper_bounds = torch.tensor([])
-        lower_bounds = torch.tensor([])
         
         len_s = self.seasonals.shape[0]
 
@@ -1602,12 +1586,11 @@ class ETS_MAM(ETS_Model):
 
             self.forecast = torch.cat((self.forecast, step_forecast))
 
-            if return_confidence:
-                fc_var = self.__get_confidence_interval(h=i)
-                upper_bounds = torch.cat((upper_bounds, torch.add(step_forecast, torch.abs(fc_var))))
-                lower_bounds = torch.cat((lower_bounds, torch.sub(step_forecast, torch.abs(fc_var))))
-                
-        if return_confidence:
+        if confidence:
+            bounds = self.__get_confidence_interval(h, conf=confidence)
+            upper_bounds = torch.add(step_forecast, bounds)
+            lower_bounds = torch.sub(step_forecast, bounds)
+            
             return self.forecast, (upper_bounds, lower_bounds)
         else:
             return self.forecast

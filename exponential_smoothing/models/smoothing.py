@@ -104,7 +104,7 @@ class HoltTrend(Smoothing_Model):
         l_t = alpha * y_t + (1 - alpha) * (l_{t-1} + b_{t-1})
         b_t = beta * (l_t - l_{t-1}) + (1 - beta) * b_{t-1}'''
         
-        self.fitted = np.zeros(self.dep_var.shape[0])
+        self.fitted = torch.zeros(size=self.dep_var.shape)
         for index, row in enumerate(self.dep_var):
             if index == 0:
                 self.level = self.initial_level
@@ -203,7 +203,7 @@ class HoltWinters(Smoothing_Model):
         l_t = alpha * y_t + (1 - alpha) * (l_{t-1} + b_{t-1})
         b_t = beta * (l_t - l_{t-1}) + (1 - beta) * b_{t-1}'''
         
-        self.fitted = np.zeros(self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.dep_var.shape)
 
         for index, row in enumerate(self.dep_var):
 

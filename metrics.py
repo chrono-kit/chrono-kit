@@ -16,5 +16,4 @@ class Metric:
 
     @staticmethod
     def rmse(y_pred, y_true):
-        
         return torch.sqrt(torch.mean((torch.square(torch.sub(y_pred, y_true)))))

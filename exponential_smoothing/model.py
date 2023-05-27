@@ -62,9 +62,9 @@ class Smoothing_Model(Model):
         self.method = { 
                         (None, False, None): smoothing_methods.simple_exp,
                         ("add", False, None): smoothing_methods.holt_trend,
+                        ("add", True, None): smoothing_methods.holt_damped_trend,
                         ("add", False, "add"): smoothing_methods.hw_add,
                         ("add", False, "mul"): smoothing_methods.hw_mul,
-                        ("add", True, None): smoothing_methods.holt_damped_trend,
                         ("add", True, "add"): smoothing_methods.hw_damped_add,
                         ("add", True, "mul"): smoothing_methods.hw_damped_mul
                                                             }[trend, damped, seasonal]
@@ -190,11 +190,11 @@ class ETS_Model(Model):
             self.params["phi"] = 1
 
 
-    def calculate_conf_level(self):
+    def calculate_conf_level(self, conf):
 
         """Calculate the confidence level to be used for intervals"""
 
-        return round(stats.norm.ppf(1 - ((1 - self.conf) / 2)), 2)
+        return round(stats.norm.ppf(1 - ((1 - conf) / 2)), 2)
     
     def update_res_variance(self, residuals, error):
 
@@ -205,8 +205,29 @@ class ETS_Model(Model):
         residual_variance = torch.sum(torch.square(torch.sub(residuals, res_mean)))
         residual_variance = torch.divide(residual_variance, residuals.shape[0]-1)
 
-        return residuals, residual_variance
+        return residuals, res_mean, residual_variance
     
+    def future_sample_paths(self, h, confidence):
+        
+        q1 = (1-confidence)/2
+        q2 = 1 - q2
+
+        loc = self.residual_mean
+        scale = self.residual_variance
+
+        sample_paths = torch.tensor([])
+
+        for iter in range(5000):
+
+            sample = torch.normal(loc, scale, size=(1,h))
+            sample_paths = torch.cat((sample_paths, sample))
+
+        q1_sample = torch.quantile(sample_paths, q1, dim=0, interpolation="nearest")
+        q2_sample = torch.quantile(sample_paths, q2, dim=0, interpolation="nearest")
+
+        bounds = torch.abs(torch.sub(q1_sample, q2_sample))
+
+        return bounds
 
 
 
