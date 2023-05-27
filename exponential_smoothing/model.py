@@ -210,14 +210,14 @@ class ETS_Model(Model):
     def future_sample_paths(self, h, confidence):
         
         q1 = (1-confidence)/2
-        q2 = 1 - q2
+        q2 = 1 - q1
 
         loc = self.residual_mean
         scale = self.residual_variance
 
         sample_paths = torch.tensor([])
 
-        for iter in range(5000):
+        for iter in range(10000):
 
             sample = torch.normal(loc, scale, size=(1,h))
             sample_paths = torch.cat((sample_paths, sample))
