@@ -217,7 +217,7 @@ class ETS_Model(Model):
 
         sample_paths = torch.tensor([])
 
-        for iter in range(5000):
+        for iter in range(10000):
 
             sample = torch.normal(loc, scale, size=(1,h))
             sample_paths = torch.cat((sample_paths, sample))

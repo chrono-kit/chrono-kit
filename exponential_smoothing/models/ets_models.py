@@ -709,8 +709,8 @@ class ETS_ANM(ETS_Model):
                 
         if confidence:
             bounds = self.__get_confidence_interval(h, conf=confidence)
-            upper_bounds = torch.add(step_forecast, bounds)
-            lower_bounds = torch.sub(step_forecast, bounds)
+            upper_bounds = torch.add(self.forecast, bounds)
+            lower_bounds = torch.sub(self.forecast, bounds)
 
             return self.forecast, (upper_bounds, lower_bounds)
         else:
@@ -854,8 +854,8 @@ class ETS_AAM(ETS_Model):
                 
         if confidence:
             bounds = self.__get_confidence_interval(h, conf=confidence)
-            upper_bounds = torch.add(step_forecast, bounds)
-            lower_bounds = torch.sub(step_forecast, bounds)
+            upper_bounds = torch.add(self.forecast, bounds)
+            lower_bounds = torch.sub(self.forecast, bounds)
             
             return self.forecast, (upper_bounds, lower_bounds)
         else:
@@ -951,8 +951,8 @@ class ETS_MNN(ETS_Model):
                 
         if confidence:
             bounds = self.__get_confidence_interval(h, conf=confidence)
-            upper_bounds = torch.add(step_forecast, bounds)
-            lower_bounds = torch.sub(step_forecast, bounds)
+            upper_bounds = torch.add(self.forecast, bounds)
+            lower_bounds = torch.sub(self.forecast, bounds)
             
             return self.forecast, (upper_bounds, lower_bounds)
         else:
@@ -1067,8 +1067,8 @@ class ETS_MAN(ETS_Model):
 
         if confidence:
             bounds = self.__get_confidence_interval(h, conf=confidence)
-            upper_bounds = torch.add(step_forecast, bounds)
-            lower_bounds = torch.sub(step_forecast, bounds)
+            upper_bounds = torch.add(self.forecast, bounds)
+            lower_bounds = torch.sub(self.forecast, bounds)
             
             return self.forecast, (upper_bounds, lower_bounds)
         else:
@@ -1194,8 +1194,8 @@ class ETS_MNA(ETS_Model):
                 
         if confidence:
             bounds = self.__get_confidence_interval(h, conf=confidence)
-            upper_bounds = torch.add(step_forecast, bounds)
-            lower_bounds = torch.sub(step_forecast, bounds)
+            upper_bounds = torch.add(self.forecast, bounds)
+            lower_bounds = torch.sub(self.forecast, bounds)
             
             return self.forecast, (upper_bounds, lower_bounds)
         else:
@@ -1327,8 +1327,8 @@ class ETS_MAA(ETS_Model):
 
         if confidence:
             bounds = self.__get_confidence_interval(h, conf=confidence)
-            upper_bounds = torch.add(step_forecast, bounds)
-            lower_bounds = torch.sub(step_forecast, bounds)
+            upper_bounds = torch.add(self.forecast, bounds)
+            lower_bounds = torch.sub(self.forecast, bounds)
             
             return self.forecast, (upper_bounds, lower_bounds)
         else:
@@ -1452,8 +1452,8 @@ class ETS_MNM(ETS_Model):
                 
         if confidence:
             bounds = self.__get_confidence_interval(h, conf=confidence)
-            upper_bounds = torch.add(step_forecast, bounds)
-            lower_bounds = torch.sub(step_forecast, bounds)
+            upper_bounds = torch.add(self.forecast, bounds)
+            lower_bounds = torch.sub(self.forecast, bounds)
             
             return self.forecast, (upper_bounds, lower_bounds)
         else:
@@ -1588,8 +1588,8 @@ class ETS_MAM(ETS_Model):
 
         if confidence:
             bounds = self.__get_confidence_interval(h, conf=confidence)
-            upper_bounds = torch.add(step_forecast, bounds)
-            lower_bounds = torch.sub(step_forecast, bounds)
+            upper_bounds = torch.add(self.forecast, bounds)
+            lower_bounds = torch.sub(self.forecast, bounds)
             
             return self.forecast, (upper_bounds, lower_bounds)
         else:
