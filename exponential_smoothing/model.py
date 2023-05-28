@@ -213,11 +213,11 @@ class ETS_Model(Model):
         q2 = 1 - q1
 
         loc = self.residual_mean
-        scale = self.residual_variance
+        scale = torch.sqrt(self.residual_variance)
 
         sample_paths = torch.tensor([])
 
-        for iter in range(10000):
+        for iter in range(5000):
 
             sample = torch.normal(loc, scale, size=(1,h))
             sample_paths = torch.cat((sample_paths, sample))
