@@ -10,11 +10,14 @@ class DataLoader:
             Currently accepted data types are: 'pd.DataFrame' and 'np.ndarray' """
         
         self.accepted_formats = [pd.DataFrame,
-                                 np.ndarray]
+                                 np.ndarray,
+                                 int,
+                                 float,
+                                 torch.Tensor]
         
         self.data_type = type(data)
         
-        assert (self.data_type in self.accepted_formats), f"{self.data_type} is not an accepted data type"
+        assert (self.data_type in self.accepted_formats), f"{type(data).__name__} is not an accepted data type"
 
         if self.data_type == pd.DataFrame:
 
@@ -64,5 +67,9 @@ class DataLoader:
 
         """Turn self.data into tensors"""
 
-        return torch.tensor(self.data)
+        if type(self.data) == torch.Tensor:
+            return self.data
+        
+        else:
+            return torch.tensor(self.data)
         

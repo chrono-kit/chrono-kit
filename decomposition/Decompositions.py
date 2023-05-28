@@ -1,12 +1,13 @@
 import torch
+from dataloader import DataLoader
 import numpy as np
 import pandas as pd
-import matplotlib
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 def classical_decomposition(data, seasonal_period, style = 'add', show = True):
     
-    data = torch.clone(data).numpy()
+    data = DataLoader(data).to_tensor()#torch.clone(data).numpy()
 
     if data.ndim >= 1:
 
@@ -42,15 +43,23 @@ def classical_decomposition(data, seasonal_period, style = 'add', show = True):
         remainder = detrended / seasonal
 
     if show:
-        pass
         # Here plots of data, trend, seasonal and remainder will be drawn
 
+        mpl.rcParams["figure.figsize"] = (12,8)
+        fig, axes = plt.subplots(3, 1)
+        ax1, ax2, ax3 = axes
+            
+        ax1.plot(range(len(trend)), trend)
+        ax1.set_ylabel("Trend")
+
+        ax2.plot(range(len(seasonal)), seasonal)
+        ax2.set_ylabel("Seasonal")
+
+        ax3.scatter(range(len(remainder)), remainder)
+        ax3.set_ylabel("Remainder")
+
+        plt.show()
+
     
-    return data, trend, seasonal, remainder
+    return trend, seasonal, remainder
 
-#Testing results
-from dataloader import DataLoader
-df = pd.read_csv('datasets\AirPassengers.csv')
-my_data = DataLoader(df).to_tensor()
-
-classical_decomposition(my_data,12)
