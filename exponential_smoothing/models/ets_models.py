@@ -35,9 +35,11 @@ class ETS_ANN(ETS_Model):
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
-    def __update_res_variance(self, error):
+    def __update_res_variance(self, y, y_hat):
 
-        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
+        resid = torch.sub(y, y_hat)
+
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, resid)
 
     def __get_confidence_interval(self, h):
         
@@ -69,6 +71,7 @@ class ETS_ANN(ETS_Model):
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
+                y_hat = row
                 self.level = self.initial_level
                 self.error = torch.tensor(0, dtype=torch.float32)
                 self.fitted[0] = row
@@ -81,7 +84,7 @@ class ETS_ANN(ETS_Model):
                 self.__smooth_level(lprev)
                 self.fitted[index] = y_hat
             
-            self.__update_res_variance(self.error)
+            self.__update_res_variance(row, y_hat)
     
     def predict(self, h, confidence = None):
 
@@ -91,7 +94,7 @@ class ETS_ANN(ETS_Model):
         """
 
         if confidence:
-            self.calculate_conf_level(confidence)
+            self.__calculate_conf_level(confidence)
             
         self.forecast = torch.tensor([])
         upper_bounds = torch.tensor([])
@@ -147,28 +150,27 @@ class ETS_AAN(ETS_Model):
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
-    def __update_res_variance(self, error):
+    def __update_res_variance(self, y, y_hat):
 
-        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
+        resid = torch.sub(y, y_hat)
+
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, resid)
         
     def __get_confidence_interval(self, h): 
-
-        k = int((h-1)/self.seasonal_periods)
         
         if not self.damped:
             fc_var = torch.add(torch.square(self.alpha), torch.mul(torch.mul(self.alpha, self.beta), h))
-            fc_var = torch.add(part1, torch.divide(torch.mul(torch.square(self.beta), h*(2*h-1)), 6))
-            fc_var = torch.mul(h-1, part1)
+            fc_var = torch.add(fc_var, torch.divide(torch.mul(torch.square(self.beta), h*(2*h-1)), 6))
+            fc_var = torch.mul(h-1, fc_var)
             fc_var = torch.add(1, fc_var)
             fc_var = torch.mul(self.residual_variance, fc_var)
         
         if self.damped:
 
             part1 = torch.mul(torch.square(self.alpha), h-1)
-            part2 = torch.mul(torch.mul(self.gamma, k), torch.add(torch.mul(2, self.alpha), self.gamma))
 
             part3_1 = torch.mul(torch.mul(self.beta, self.phi), h)
-            part3_1 = torch.divide(part3_1, torch.square(torch.subt(1, self.phi)))
+            part3_1 = torch.divide(part3_1, torch.square(torch.sub(1, self.phi)))
             part3_2 = torch.add(torch.mul(torch.mul(2, self.alpha), torch.sub(1, self.phi)), torch.mul(self.beta, self.phi))
             part3 = torch.mul(part3_1, part3_2)
 
@@ -178,8 +180,7 @@ class ETS_AAN(ETS_Model):
             part4_2 = torch.add(torch.mul(torch.mul(2, self.alpha), torch.sub(1, torch.square(self.phi))), part4_2)
             part4 = torch.mul(part4_1, part4_2)
 
-            fc_var = torch.add(part1, part2)
-            fc_var = torch.add(fc_var, part3)
+            fc_var = torch.add(part1, part3)
             fc_var = torch.sub(fc_var, part4)
             fc_var = torch.add(1, fc_var)
             fc_var = torch.mul(self.residual_variance, fc_var)
@@ -215,6 +216,7 @@ class ETS_AAN(ETS_Model):
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
+                y_hat = row
                 self.level = self.initial_level
                 self.trend = self.initial_trend
                 self.error = torch.tensor(0, dtype=torch.float32)
@@ -229,7 +231,7 @@ class ETS_AAN(ETS_Model):
                 self.__smooth_trend(bprev)
                 self.fitted[index] = y_hat
             
-            self.__update_res_variance(self.error)
+            self.__update_res_variance(row, y_hat)
     
     def predict(self, h, confidence = None):
 
@@ -239,7 +241,7 @@ class ETS_AAN(ETS_Model):
         """
 
         if confidence:
-            self.calculate_conf_level(confidence)
+            self.__calculate_conf_level(confidence)
             
         self.forecast = torch.tensor([])
         upper_bounds = torch.tensor([])
@@ -296,9 +298,11 @@ class ETS_ANA(ETS_Model):
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
-    def __update_res_variance(self, error):
+    def __update_res_variance(self, y, y_hat):
 
-        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
+        resid = torch.sub(y, y_hat)
+
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, resid)
         
     def __get_confidence_interval(self, h):
 
@@ -339,6 +343,7 @@ class ETS_ANA(ETS_Model):
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
+                y_hat = row
                 self.level = self.initial_level
                 self.error = torch.tensor(0, dtype=torch.float32)
                 seasonal = self.initial_seasonals[0]
@@ -368,7 +373,7 @@ class ETS_ANA(ETS_Model):
 
                 self.fitted[index] = y_hat
             
-            self.__update_res_variance(self.error)
+            self.__update_res_variance(row, y_hat)
     
     def predict(self, h, confidence = None):
 
@@ -378,7 +383,7 @@ class ETS_ANA(ETS_Model):
         """
         
         if confidence:
-            self.calculate_conf_level(confidence)
+            self.__calculate_conf_level(confidence)
             
         self.forecast = torch.tensor([])
         upper_bounds = torch.tensor([])
@@ -439,9 +444,11 @@ class ETS_AAA(ETS_Model):
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
-    def __update_res_variance(self, error):
+    def __update_res_variance(self, y, y_hat):
 
-        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
+        resid = torch.sub(y, y_hat)
+
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, resid)
         
     def __get_confidence_interval(self, h):
 
@@ -466,7 +473,7 @@ class ETS_AAA(ETS_Model):
             part2 = torch.mul(torch.mul(self.gamma, k), torch.add(torch.mul(2, self.alpha), self.gamma))
 
             part3_1 = torch.mul(torch.mul(self.beta, self.phi), h)
-            part3_1 = torch.divide(part3_1, torch.square(torch.subt(1, self.phi)))
+            part3_1 = torch.divide(part3_1, torch.square(torch.sub(1, self.phi)))
             part3_2 = torch.add(torch.mul(torch.mul(2, self.alpha), torch.sub(1, self.phi)), torch.mul(self.beta, self.phi))
             part3 = torch.mul(part3_1, part3_2)
 
@@ -519,6 +526,7 @@ class ETS_AAA(ETS_Model):
 
         for index, row in enumerate(self.dep_var):
             if index == 0:
+                y_hat = row
                 self.level = self.initial_level
                 self.trend = self.initial_trend
                 self.error = torch.tensor(0, dtype=torch.float32)
@@ -547,7 +555,7 @@ class ETS_AAA(ETS_Model):
                 self.__smooth_seasonal(seasonal)
                 self.fitted[index] =y_hat
 
-            self.__update_res_variance(self.error)
+            self.__update_res_variance(row, y_hat)
 
     def predict(self, h, confidence = None):
 
@@ -557,7 +565,7 @@ class ETS_AAA(ETS_Model):
         """
 
         if confidence:
-            self.calculate_conf_level(confidence)
+            self.__calculate_conf_level(confidence)
             
         self.forecast = torch.tensor([])
 
@@ -622,9 +630,11 @@ class ETS_ANM(ETS_Model):
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
-    def __update_res_variance(self, error):
+    def __update_res_variance(self, y, y_hat):
 
-        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
+        resid = torch.sub(y, y_hat)
+
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, resid)
         
     def __get_confidence_interval(self, h, conf):
 
@@ -660,6 +670,7 @@ class ETS_ANM(ETS_Model):
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
+                y_hat = row
                 self.level = self.initial_level
                 self.error = torch.tensor(0, dtype=torch.float32)
                 seasonal = self.initial_seasonals[0]
@@ -686,7 +697,7 @@ class ETS_ANM(ETS_Model):
 
                 self.fitted[index] = y_hat
             
-            self.__update_res_variance(self.error)
+            self.__update_res_variance(row, y_hat)
     
     def predict(self, h, confidence = None):
 
@@ -753,9 +764,11 @@ class ETS_AAM(ETS_Model):
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
-    def __update_res_variance(self, error):
+    def __update_res_variance(self, y, y_hat):
 
-        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
+        resid = torch.sub(y, y_hat)
+
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, resid)
         
     def __get_confidence_interval(self, h, conf):
         
@@ -798,6 +811,7 @@ class ETS_AAM(ETS_Model):
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
+                y_hat = row
                 self.level = self.initial_level
                 self.trend = self.initial_trend
                 self.error = torch.tensor(0, dtype=torch.float32)
@@ -830,7 +844,7 @@ class ETS_AAM(ETS_Model):
 
                 self.fitted[index] = y_hat
             
-            self.__update_res_variance(self.error)
+            self.__update_res_variance(row, y_hat)
 
     
     def predict(self, h, confidence = None):
@@ -892,9 +906,11 @@ class ETS_MNN(ETS_Model):
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
-    def __update_res_variance(self, error):
+    def __update_res_variance(self, y, y_hat):
 
-        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
+        resid = torch.sub(y, y_hat)
+
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, resid)
 
     def __get_confidence_interval(self, h, conf):
         
@@ -922,6 +938,7 @@ class ETS_MNN(ETS_Model):
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
+                y_hat = row
                 self.level = self.initial_level
                 self.error = torch.tensor(0, dtype=torch.float32)
                 self.fitted[0] = row
@@ -933,7 +950,7 @@ class ETS_MNN(ETS_Model):
                 self.__smooth_level(lprev)
                 self.fitted[index] = y_hat
             
-            self.__update_res_variance(self.error)
+            self.__update_res_variance(row, y_hat)
     
     def predict(self, h, confidence = None):
 
@@ -993,9 +1010,11 @@ class ETS_MAN(ETS_Model):
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
-    def __update_res_variance(self, error):
+    def __update_res_variance(self, y, y_hat):
 
-        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
+        resid = torch.sub(y, y_hat)
+
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, resid)
         
     def __get_confidence_interval(self, h, conf): 
 
@@ -1031,6 +1050,7 @@ class ETS_MAN(ETS_Model):
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
+                y_hat = row
                 self.level = self.initial_level
                 self.trend = self.initial_trend
                 self.error = torch.tensor(0, dtype=torch.float32)
@@ -1045,7 +1065,7 @@ class ETS_MAN(ETS_Model):
                 self.__smooth_trend(bprev, lprev)
                 self.fitted[index] = y_hat
             
-            self.__update_res_variance(self.error)
+            self.__update_res_variance(row, y_hat)
     
     
     def predict(self, h, confidence = None):
@@ -1106,9 +1126,11 @@ class ETS_MNA(ETS_Model):
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
-    def __update_res_variance(self, error):
+    def __update_res_variance(self, y, y_hat):
 
-        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
+        resid = torch.sub(y, y_hat)
+
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, resid)
         
     def __get_confidence_interval(self, h, conf): 
 
@@ -1143,6 +1165,7 @@ class ETS_MNA(ETS_Model):
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
+                y_hat = row
                 self.level = self.initial_level
                 self.error = torch.tensor(0, dtype=torch.float32)
                 seasonal = self.initial_seasonals[0]
@@ -1171,7 +1194,7 @@ class ETS_MNA(ETS_Model):
 
                 self.fitted[index] = y_hat
             
-            self.__update_res_variance(self.error)
+            self.__update_res_variance(row, y_hat)
     
     def predict(self, h, confidence = None):
 
@@ -1236,9 +1259,11 @@ class ETS_MAA(ETS_Model):
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
-    def __update_res_variance(self, error):
+    def __update_res_variance(self, y, y_hat):
 
-        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
+        resid = torch.sub(y, y_hat)
+
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, resid)
 
     def __get_confidence_interval(self, h, conf):
 
@@ -1274,6 +1299,7 @@ class ETS_MAA(ETS_Model):
 
         for index, row in enumerate(self.dep_var):
             if index == 0:
+                y_hat = row
                 self.level = self.initial_level
                 self.trend = self.initial_trend
                 self.error = torch.tensor(0, dtype=torch.float32)
@@ -1302,7 +1328,7 @@ class ETS_MAA(ETS_Model):
                 self.__smooth_seasonal(seasonal, lprev, bprev)
                 self.fitted[index] =y_hat
 
-            self.__update_res_variance(self.error)
+            self.__update_res_variance(row, y_hat)
 
     def predict(self, h, confidence = None):
 
@@ -1367,9 +1393,11 @@ class ETS_MNM(ETS_Model):
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
-    def __update_res_variance(self, error):
+    def __update_res_variance(self, y, y_hat):
 
-        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
+        resid = torch.sub(y, y_hat)
+
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, resid)
         
     def __get_confidence_interval(self, h, conf):
         #no func
@@ -1403,6 +1431,7 @@ class ETS_MNM(ETS_Model):
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
+                y_hat = row
                 self.level = self.initial_level
                 self.error = torch.tensor(0, dtype=torch.float32)
                 seasonal = self.initial_seasonals[0]
@@ -1429,7 +1458,7 @@ class ETS_MNM(ETS_Model):
 
                 self.fitted[index] = y_hat
             
-            self.__update_res_variance(self.error)
+            self.__update_res_variance(row, y_hat)
     
     def predict(self, h, confidence = None):
 
@@ -1494,9 +1523,11 @@ class ETS_MAM(ETS_Model):
 
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
     
-    def __update_res_variance(self, error):
+    def __update_res_variance(self, y, y_hat):
 
-        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, error)
+        resid = torch.sub(y, y_hat)
+
+        self.residuals, self.residual_mean, self.residual_variance = super().update_res_variance(self.residuals, resid)
         
     def __get_confidence_interval(self, h, conf):
         
@@ -1536,6 +1567,7 @@ class ETS_MAM(ETS_Model):
         for index, row in enumerate(self.dep_var):
 
             if index == 0:
+                y_hat = row
                 self.level = self.initial_level
                 self.trend = self.initial_trend
                 self.error = torch.tensor(0, dtype=torch.float32)
@@ -1565,7 +1597,7 @@ class ETS_MAM(ETS_Model):
 
                 self.fitted[index] = y_hat
             
-            self.__update_res_variance(self.error)
+            self.__update_res_variance(row, y_hat)
 
     
     def predict(self, h, confidence = None):
