@@ -15,6 +15,9 @@ def classical_decomposition(data, seasonal_period, style = 'add', show = True):
 
     number_of_cycles = len(data) // seasonal_period
 
+    if number_of_cycles < 2:
+        raise ValueError('There must be at least 2 full cycles')
+
     # Computing the trend-cycle component using moving averages
     trend = pd.Series(data).rolling(seasonal_period,center=True).mean()
 
