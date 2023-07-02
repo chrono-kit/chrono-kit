@@ -21,6 +21,7 @@ class DataLoader:
 
         if self.data_type == pd.DataFrame:
 
+            self.original_df = data
             self.data = self.organize_df(data)
         
         else:
