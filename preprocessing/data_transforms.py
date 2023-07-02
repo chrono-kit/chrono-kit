@@ -57,7 +57,7 @@ class DataTransform:
             if self.transformed_axis:
                 pass
         except NameError:
-            print("Must call '.transform()' before calling '.inverse_transform()'")
+            raise NameError("Must call '.transform()' before calling '.inverse_transform()'")
 
         assert(type(names) == list), "Provide names argument as a list"
 
@@ -299,7 +299,7 @@ class MinMaxScaling(DataTransform):
         try:
             iter(feature_range)
         except TypeError:
-            print("Provide feature_range as an iterable")
+            raise TypeError("Provide feature_range as an iterable")
 
         assert(len(feature_range) == 2), "Provide feature_range as an iterable of length 2"
 

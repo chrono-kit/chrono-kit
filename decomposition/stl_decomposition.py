@@ -32,28 +32,10 @@ def stl_decomposition(data, seasonal_period, loess_span = 0.2, robustness_iters 
         for i in range(seasonal_period): # Inner Loop
           pass
           #Detrend/Deseason
-
-
-  
-  
     
     if show:
         # Here plots of data, trend, seasonal and remainder will be drawn
 
-        mpl.rcParams["figure.figsize"] = (12,8)
-        fig, axes = plt.subplots(3, 1)
-        ax1, ax2, ax3 = axes
-            
-        ax1.plot(range(len(trend)), trend)
-        ax1.set_ylabel("Trend")
-
-        ax2.plot(range(len(seasonal)), seasonal)
-        ax2.set_ylabel("Seasonal")
-
-        ax3.scatter(range(len(remainder)), remainder)
-        ax3.set_ylabel("Remainder")
-
-        plt.show()
-
+        
     
     return trend, seasonal, remainder    
