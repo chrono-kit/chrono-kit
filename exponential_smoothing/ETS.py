@@ -1,16 +1,33 @@
-import numpy as np
-import pandas as pd
-import torch
 from .model import ETS_Model
 from exponential_smoothing.models.ets_models import *
-from dataloader import DataLoader
-import scipy.stats as stats
 
 class ETS(ETS_Model):
 
-    def __new__(self, dep_var, error_type="add", trend=None, damped=False, seasonal=None, seasonal_periods=None, indep_var=None, **kwargs):
+    def __new__(self, dep_var, error_type="add", trend=None, damped=False, seasonal=None, seasonal_periods=None, initialization_method="heuristic", **kwargs):
+        """
+        ETS (Error,Trend,Seasonality) model for time series data
+        Arguments:
 
-        #keys are [trend, seasonal, error(add or mul)]
+        *dep_var (array_like): Univariate time series data
+        *error_type (str): Type of error of the ETS model; "add" or "mul"
+        *trend (Optional[str]): Trend component; None or "add"
+        *seasonal (Optional[str]): Seasonal component; None, "add" or "mul"
+        *seasonal_periods (Optional[int]): Cyclic period of the seasonal component; int or None if seasonal is None
+        *damped (bool): Damp factor of the trend component; False if trend is None
+        *initialization_method (str): Initialization method to use for the model parameters; "heuristic" or "mle"
+
+        Keyword Arguments:
+
+        ** alpha (float): Smoothing parameter for level component; takes values in (0,1)
+        ** beta (float): Smoothing parameter for trend component; takes values in (0,1)
+        ** phi (float): Damp factor for trend component; takes values in (0,1]
+        ** gamma (float): Smoothing parameter for seasonal component; takes values in (0,1)
+        
+        ETS models are implemented by the below textbook as a reference:
+        'Hyndman, Rob J., and George Athanasopoulos. Forecasting: principles
+        and practice. OTexts, 2014.'
+        """
+        
         ets_class = { 
                         (None, None, "add"): ETS_ANN,
                         (None, "add", "add"): ETS_ANA,
@@ -28,4 +45,4 @@ class ETS(ETS_Model):
                                                             }[trend, seasonal, error_type]
 
         return ets_class(dep_var, trend=trend, seasonal=seasonal, error_type=error_type, damped=damped, 
-                         seasonal_periods=seasonal_periods, indep_var=None, **kwargs)
+                         seasonal_periods=seasonal_periods, initialization_method=initialization_method, **kwargs)

@@ -4,7 +4,7 @@ import torch
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import warnings
-from dataloader import DataLoader
+from preprocessing.dataloader import DataLoader
 warnings.filterwarnings("ignore")
 mpl.rcParams["figure.figsize"] = (12,8)
 
@@ -36,6 +36,6 @@ def stl_decomposition(data, seasonal_period, loess_span = 0.2, robustness_iters 
     if show:
         # Here plots of data, trend, seasonal and remainder will be drawn
 
-        
+        pass
     
-    return trend, seasonal, remainder    
+    return None #trend, seasonal, remainder    

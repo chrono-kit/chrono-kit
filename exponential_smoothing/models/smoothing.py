@@ -1,11 +1,17 @@
 import numpy as np
 import torch
-import math
 from exponential_smoothing.model import Smoothing_Model
+
+"""
+Exponential Smoothing models for time series forecasting.
+All methods have been implemented from chapter 7 of the textbook as a reference.
+'Hyndman, Rob J., and George Athanasopoulos. Forecasting: principles
+and practice. OTexts, 2014.'
+"""
 
 class SES(Smoothing_Model):
     def __init__(self, dep_var, trend=None, seasonal=None, seasonal_periods=None, damped=False, indep_var=None, **kwargs):
-
+        """Implementation of Simple Exponential Smoothing"""
         self.trend = None
         self.damped = False
         self.seasonal = None
@@ -19,7 +25,7 @@ class SES(Smoothing_Model):
         self.__initialize_params(initialize_params)
 
     def __initialize_params(self, initialize_params):
-
+        """Initialize the model parameters"""
         super().initialize_params(initialize_params)
 
         self.initial_level = torch.tensor(self.init_components["level"])
@@ -27,17 +33,14 @@ class SES(Smoothing_Model):
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
 
     def __smooth_level(self, y, lprev):
-        '''
-        This function calculates the smoothed value for a given alpha and y value.
-        Smoothing equation: 
-        '''
+        """Calculate level"""
         self.level =  torch.add(torch.mul(self.alpha, y),torch.mul((1 - self.alpha), lprev))
     
     def fit(self):
-        '''
-        This function fits the model to the data using smoothing equation.
-        l_t = alpha * y_t + (1 - alpha) * l_{t-1}
-        '''
+        """
+        Fit the model to the data according to the equations:
+        l_t =  alpha*y_t + (1 - alpha)*l_{t-1}
+        """
         self.fitted = torch.zeros(self.dep_var.shape[0])
         for index,row in enumerate(self.dep_var):
             if index == 0:
@@ -50,10 +53,13 @@ class SES(Smoothing_Model):
                 self.fitted[index] = y_hat  
     
     def predict(self,h):
-        '''
-        This function predicts the next value in the series using the forecast equation.
-        yhat_{t+h|t} = l_t
-        '''
+        """
+        Predict the next h values of the target variable.
+
+        Arguments:
+
+        *h (int): Future time-steps to forecast
+        """
         self.forecast = torch.tensor([])
         for i in range(1,h+1):
             step_forecast = self.level
@@ -63,6 +69,7 @@ class SES(Smoothing_Model):
 
 class HoltTrend(Smoothing_Model):
     def __init__(self, dep_var, trend="add", seasonal=None, seasonal_periods=None, damped=False, indep_var=None, **kwargs):
+        """Implementation of Holt's Trend Method"""
         self.trend = "add"
         self.damped = damped
         self.seasonal = None
@@ -79,6 +86,7 @@ class HoltTrend(Smoothing_Model):
 
 
     def __initialize_params(self, initialize_params):
+        """Initialize the model parameters"""
 
         super().initialize_params(initialize_params)
 
@@ -88,21 +96,21 @@ class HoltTrend(Smoothing_Model):
         self.alpha, self.beta, self.gamma, self.phi = torch.tensor(list(self.params.values()), dtype=torch.float32)
 
     def __smooth_level(self, y, lprev, bprev):
-        '''This function calculates the smoothed level for a given alpha and y value'''
+        """Calculate level"""
         self.level = torch.mul(torch.sub(1,self.alpha),torch.add(lprev, torch.mul(self.phi, bprev)))
         self.level = torch.add(torch.mul(self.alpha, y), self.level)
 
     def __smooth_trend(self, lprev, bprev):
-        '''This function calculates the smoothed trend for a given beta and level values'''
+        "Calculate trend"
         self.trend = torch.mul(self.beta, torch.sub(self.level, lprev))
         self.trend = torch.add(self.trend, torch.mul(torch.sub(1, self.beta), torch.mul(self.phi, bprev)))
 
-
     def fit(self):
-        
-        '''This function fits the model to the data using the following equations:
+        """
+        Fit the model to the data according to the equations:
         l_t = alpha * y_t + (1 - alpha) * (l_{t-1} + b_{t-1})
-        b_t = beta * (l_t - l_{t-1}) + (1 - beta) * b_{t-1}'''
+        b_t = beta * (l_t - l_{t-1}) + (1 - beta)*phi*b_{t-1}
+        """
         
         self.fitted = torch.zeros(size=self.dep_var.shape)
         for index, row in enumerate(self.dep_var):
@@ -111,7 +119,6 @@ class HoltTrend(Smoothing_Model):
                 self.trend = self.initial_trend
                 self.fitted[0] = row[0]
             else:
-                
                 y_hat = torch.add(self.level, torch.mul(self.phi, self.trend))
                 lprev, bprev = self.level, self.trend
                 self.__smooth_level(row, lprev, bprev)
@@ -120,9 +127,13 @@ class HoltTrend(Smoothing_Model):
         
 
     def predict(self, h):
-        
-        '''This function predicts the next h values in the series using the forecast equation.
-        yhat_{t+h|t} = l_t + h * b_t'''
+        """
+        Predict the next h values of the target variable.
+
+        Arguments:
+
+        *h (int): Future time-steps to forecast
+        """
         
         self.forecast = torch.tensor([])
         for i in range(1,h+1):
@@ -136,6 +147,7 @@ class HoltTrend(Smoothing_Model):
     
 class HoltWinters(Smoothing_Model):
     def __init__(self, dep_var, trend="add", seasonal="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+        "Implementation of Holt-Winters' Seasonal Method"
         self.trend = trend
         self.damped = damped
         self.seasonal = seasonal
@@ -151,6 +163,7 @@ class HoltWinters(Smoothing_Model):
         self.__initialize_params(initialize_params)
 
     def __initialize_params(self, initialize_params):
+        """Initialize the model parameters"""
 
         super().initialize_params(initialize_params)
 
@@ -162,7 +175,7 @@ class HoltWinters(Smoothing_Model):
 
 
     def __smooth_level(self, y, lprev, bprev, seasonal):
-        '''This function calculates the smoothed level for a given alpha and y value'''
+        """Calculate level"""
 
         if self.seasonal == "add":
 
@@ -176,7 +189,7 @@ class HoltWinters(Smoothing_Model):
 
 
     def __smooth_trend(self, lprev, bprev):
-        '''This function calculates the smoothed trend for a given beta and level values'''
+        """Calculate trend"""
 
         self.trend = torch.mul(self.beta, torch.sub(self.level, lprev))
         self.trend = torch.add(self.trend, torch.mul(torch.sub(1, self.beta), torch.mul(self.phi, bprev)))
@@ -198,10 +211,19 @@ class HoltWinters(Smoothing_Model):
 
 
     def fit(self):
+        """
+        Fit the model to the data according to the equations:
         
-        '''This function fits the model to the data using the following equations:
-        l_t = alpha * y_t + (1 - alpha) * (l_{t-1} + b_{t-1})
-        b_t = beta * (l_t - l_{t-1}) + (1 - beta) * b_{t-1}'''
+        If seasonal is additive:
+        l_t = alpha*(y_t - s_{t-m}) + (1 - alpha)*(l_{t-1} + b_{t-1})
+        b_t = beta * (l_t - l_{t-1}) + (1 - beta)*phi*b_{t-1}
+        s_t = gamma*(y_t - l_{t-1} - phi*b_{t-1}) + (1 - y)*s_{t-m}
+
+        If seasonal is multiplicative:
+        l_t = alpha*(y_t/s_{t-m}) + (1 - alpha)*(l_{t-1} + b_{t-1})
+        b_t = beta * (l_t - l_{t-1}) + (1 - beta)*phi*b_{t-1}
+        s_t = gamma*(y_t/(l_{t-1} + phi*b_{t-1})) + (1 - y)*s_{t-m}
+        """
         
         self.fitted = torch.zeros(size=self.dep_var.shape)
 
@@ -250,9 +272,13 @@ class HoltWinters(Smoothing_Model):
             
 
     def predict(self, h):
-        
-        '''This function predicts the next h values in the series using the forecast equation.
-        yhat_{t+h|t} = l_t + h * b_t'''
+        """
+        Predict the next h values of the target variable.
+
+        Arguments:
+
+        *h (int): Future time-steps to forecast
+        """
         
         self.forecast = torch.tensor([])
         len_seasonal = self.seasonals.shape[0]

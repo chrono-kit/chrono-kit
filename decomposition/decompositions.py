@@ -1,5 +1,5 @@
 import torch
-from dataloader import DataLoader
+from preprocessing.dataloader import DataLoader
 from utils.vis_utils import plot_decomp
 import numpy as np
 import pandas as pd
