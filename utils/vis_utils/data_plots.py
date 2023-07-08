@@ -1,7 +1,7 @@
 import matplotlib
 import matplotlib.style
 import matplotlib.pyplot as plt
-from dataloader import DataLoader
+from preprocessing.dataloader import DataLoader
 
 def plot_decomp(trend, seasonal, remainder, figsize=(12,8), colors=None, style=None):
 

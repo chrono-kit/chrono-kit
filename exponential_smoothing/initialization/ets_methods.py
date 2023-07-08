@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def ANN(dep_var, init_components, params):
 
     init_lvl, init_trend, init_seasonals, seasonal_periods = init_components
