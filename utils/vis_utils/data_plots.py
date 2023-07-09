@@ -4,7 +4,18 @@ import matplotlib.pyplot as plt
 from preprocessing.dataloader import DataLoader
 
 def plot_decomp(trend, seasonal, remainder, figsize=(12,8), colors=None, style=None):
+    """
+    Utility function for plotting time series decomposition results
+    
+    Arguments:
 
+    *trend (array_like): Trend component of the decomposition
+    *seasonal (array_like): Seasonal component of the decomposition
+    *remainer (array_like): Remainders of the decomposition
+    *figsize (Optional[tuple]): Size of the plot
+    *colors (Optional[iterable]): Colors of the lines/points on the plot
+    *style (Optional[str]): Style of the plot 'https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html'
+    """
     if style:
         assert(type(style) == str), "Provide style as a string"
         matplotlib.style.use(style)
@@ -42,13 +53,19 @@ def plot_decomp(trend, seasonal, remainder, figsize=(12,8), colors=None, style=N
         
 
 def plot_train_test_split(train_data, test_data, val_data=None, figsize=(12,8), title: str =None, colors=None, style=None):
+    """
+    Utility function for plotting train test split
     
-    """"Plots train and test data in one plot for univariate data.
-        Parameters:
-            train_data : Training data possibly of type pd.DataFrame
-            test_data  : Test data possibly of type pd.Dataframe
-            val_data   : Validation data possibly of type pd.Dataframe
-            title      : Title of the plot"""
+    Arguments:
+
+    *train_data (array_like): Training data of the split
+    *test_data (array_like): Test data of the split
+    *val_data (Optional[array_like]): Val data of the split if data is splitted as train/val/test
+    *figsize (Optional[tuple]): Size of the plot
+    *title (Optional[str]): Title of the plot
+    *colors (Optional[iterable]): Colors of the lines/points on the plot
+    *style (Optional[str]): Style of the plot 'https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html'
+    """
     
     assert (type(title) == "str" or title is None), "Plot title must be a string"
 

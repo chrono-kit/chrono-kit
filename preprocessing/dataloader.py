@@ -6,7 +6,7 @@ class DataLoader:
 
     def __init__(self, data):
 
-        """ A class to transform given data into torch tensors
+        """ A class to transform given data into desirable types
             Currently accepted data types are: 'pd.DataFrame', 'pd.Series', 'np.ndarray', 'torch.Tensor"""
         
         self.accepted_types = [pd.DataFrame,

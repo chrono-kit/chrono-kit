@@ -1,5 +1,7 @@
 import numpy as np
 
+"""ETS methods to use for initialization of parameters"""
+
 def simple_exp(dep_var, init_components, params):
 
     init_lvl, init_trend, init_seasonals, seasonal_periods = init_components          

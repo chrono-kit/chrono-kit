@@ -9,7 +9,7 @@ import scipy.stats as stats
 class Model():
     def __init__(self,dep_var, **kwargs):
         """
-        A template class that provides a skeleton for all model classes to inherit from.
+        Base model class for all model classes to inherit from.
         Child classes are expected to implement their own .fit() and .predict() methods
         """
         
@@ -87,8 +87,11 @@ class Smoothing_Model(Model):
     def __estimate_params(self, init_components, params):
         """Estimate the best parameters to use during fitting and forecasting for the smoothing model"""
         def func(x):
-
-            errs = self.method(self.dep_var, init_components=init_components, params=x)
+            if self.dep_var.ndim == 1:
+                dep_var = torch.unsqueeze(self.dep_var, axis=-1)
+            else:
+                dep_var = self.dep_var
+            errs = self.method(dep_var, init_components=init_components, params=x)
 
             return np.mean(np.square(np.array(errs)))
 
@@ -172,8 +175,11 @@ class ETS_Model(Model):
     def __estimate_params(self, init_components, params):
         """Estimate the best parameters to use during fitting and forecasting for the smoothing model"""
         def func(x):
-
-            errs = self.method(self.dep_var, init_components=init_components, params=x)
+            if self.dep_var.ndim == 1:
+                dep_var = torch.unsqueeze(self.dep_var, axis=-1)
+            else:
+                dep_var = self.dep_var
+            errs = self.method(dep_var, init_components=init_components, params=x)
 
             return np.mean(np.square(np.array(errs)))
 

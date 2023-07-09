@@ -1,5 +1,7 @@
 import numpy as np
 
+"""ETS methods to use for initialization of parameters"""
+
 def ANN(dep_var, init_components, params):
 
     init_lvl, init_trend, init_seasonals, seasonal_periods = init_components
@@ -468,7 +470,7 @@ def AAA(dep_var, init_components, params):
 
             seasonal = init_seasonals[index]     
 
-            y_hat = lvl + +trend +seasonal
+            y_hat = lvl + trend +seasonal
             error = row.numpy()[0] - y_hat
 
             lprev, bprev = lvl, trend
@@ -484,7 +486,7 @@ def AAA(dep_var, init_components, params):
 
             seasonal = seasonals[index-seasonal_periods]  
 
-            y_hat = lvl + +trend +seasonal
+            y_hat = lvl + trend +seasonal
             error = row.numpy()[0] - y_hat
 
             lprev, bprev = lvl, trend
@@ -694,13 +696,12 @@ def AAM(dep_var, init_components, params):
 
             seasonal_t = seasonal + gamma*error/(lprev+bprev)
             lvl = lprev+bprev + alpha*error/seasonal
-            trend = bprev+ beta*(bprev*error)/seasonal
+            trend = bprev+ beta*error/seasonal
 
             seasonals.append(seasonal_t)
             errors.append(error)            
 
         else:               
-
             seasonal = seasonals[index-seasonal_periods]  
 
             y_hat = (lvl + trend)* seasonal
@@ -710,7 +711,7 @@ def AAM(dep_var, init_components, params):
 
             seasonal_t = seasonal + gamma*error/(lprev+bprev)
             lvl = lprev+bprev + alpha*error/seasonal
-            trend = bprev+ beta*(bprev*error)/seasonal
+            trend = bprev+ beta*error/seasonal
 
             seasonals.append(seasonal_t)
             errors.append(error)
