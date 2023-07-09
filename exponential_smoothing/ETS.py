@@ -6,14 +6,15 @@ class ETS(ETS_Model):
     def __new__(self, dep_var, error_type="add", trend=None, damped=False, seasonal=None, seasonal_periods=None, initialization_method="heuristic", **kwargs):
         """
         ETS (Error,Trend,Seasonality) model for time series data
+
         Arguments:
 
         *dep_var (array_like): Univariate time series data
         *error_type (str): Type of error of the ETS model; "add" or "mul"
         *trend (Optional[str]): Trend component; None or "add"
+        *damped (bool): Damp factor of the trend component; False if trend is None
         *seasonal (Optional[str]): Seasonal component; None, "add" or "mul"
         *seasonal_periods (Optional[int]): Cyclic period of the seasonal component; int or None if seasonal is None
-        *damped (bool): Damp factor of the trend component; False if trend is None
         *initialization_method (str): Initialization method to use for the model parameters; "heuristic" or "mle"
 
         Keyword Arguments:

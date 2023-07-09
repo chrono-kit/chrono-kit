@@ -1,1 +1,1 @@
-from .classical_decomposition import *
+from .decompositions import *

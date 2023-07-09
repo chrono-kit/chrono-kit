@@ -1,17 +1,17 @@
 import numpy as np
 import pandas as pd
 import torch
-from dataloader import DataLoader
+from .dataloader import DataLoader
 from scipy.stats import boxcox_normmax
 
 class DataTransform:
 
     def __init__(self):
-
+        """Base class for all data transformation class to inherit from"""
         pass
 
     def transform_assert(self, loader: DataLoader, axis: int, scales: dict):
-
+        """Make necessary assertions for transforming the data"""
         for scale_key in scales:
 
             scale_dict = scales[scale_key]
@@ -50,7 +50,7 @@ class DataTransform:
                         assert (set(list(scale_dict.keys())) == set(data_names)), f"Provide keys as {hmap[axis]}0 for {hmap[axis]} of index 0 etc..."
 
     def inv_transform_assert(self, loader: DataLoader, names, scales: dict):
-
+        """Make necessary assertions to inverse transforming the data"""
         assert(type(names) == list), "Provide names argument as a list"
 
         try:
@@ -78,10 +78,20 @@ class DataTransform:
 
 class BoxCox(DataTransform):
     def __init__(self):
+        """Box-Cox transformation for time series data"""
         super().__init__()
         self.lambdas = {}
 
     def transform(self, data, axis=-1, lambda_values: dict = {}):
+        """
+        Transform given data with box-cox method
+
+        Arguments:
+
+        *data (array_like): Time series data to transform
+        *axis (int): Axis to perform the transformation on
+        *lambda_values (Optional[dict]): Lambda values for the transformation; will be estimated if given as an empty dict 
+        """
 
         loader = DataLoader(data)
         self.transform_assert(loader, axis, scales={"lambda": lambda_values})
@@ -129,13 +139,23 @@ class BoxCox(DataTransform):
         return transformed
     
     def inverse_transform(self, data, names: list = []):
+        """
+        Inverse transform given data
 
+        Arguments:
+
+        *data (array_like): Time series data to inverse transform
+        *names (Optional[list]): Keys for data to inverse transform if partial transformation is desired  
+        """
         loader = DataLoader(data)
 
         self.inv_transform_assert(loader, names, scales={"lambda": self.lambdas})
 
         transform_data = loader.to_tensor()
         transformed = np.zeros(transform_data.shape)
+
+        if names == []:
+            names = list(self.lambdas.keys())
 
         for ind in range(len(names)):
 
@@ -165,7 +185,7 @@ class BoxCox(DataTransform):
         return transformed
           
     def __box_cox(self, data, lambd=None, data_name="col0"):
-
+        """Perform the box-cox transformation"""
         box_coxed = data.detach().clone()
 
         if lambd:
@@ -181,12 +201,21 @@ class BoxCox(DataTransform):
 
 class StandardScaling(DataTransform):
     def __init__(self):
-
+        """Standard Scaling for time series data"""
         self.locations = {}
         self.scales = {}
 
     def transform(self, data, axis=-1, locations: dict = {}, scales: dict = {}):
+        """
+        Standard scale the given data
 
+        Arguments:
+
+        *data (array_like): Time series data to transform
+        *axis (int): Axis to perform the transformation on
+        *locations (Optional[dict]): Location values to be used for scaling the data; will be taken as the mean if not given
+        *scales (Optional[dict]): Scale values to be used for scaling the data; will be taken as the std if not given
+        """
         loader = DataLoader(data)
         self.transform_assert(loader, axis, scales={"location": locations, "scale": scales})
 
@@ -256,7 +285,14 @@ class StandardScaling(DataTransform):
         return transformed
     
     def inverse_transform(self, data, names: list = []):
+        """
+        Inverse transform given data
 
+        Arguments:
+
+        *data (array_like): Time series data to transform
+        *names (Optional[list]): Keys for data to inverse transform if partial transformation is desired  
+        """
         loader = DataLoader(data)
 
         self.inv_transform_assert(loader, names, scales={"lambda": self.lambdas})
@@ -295,7 +331,13 @@ class StandardScaling(DataTransform):
 
 class MinMaxScaling(DataTransform):
     def __init__(self, feature_range=(0,1)):
+        """
+        MinMax Scaling for time series data
 
+        Arguments:
+
+        *feature_range (Optional[iterable]): Value bounds for the data to be scaled on
+        """
         try:
             iter(feature_range)
         except TypeError:
@@ -311,7 +353,14 @@ class MinMaxScaling(DataTransform):
         self.maxes = {}
 
     def transform(self, data, axis=-1):
+        """
+        MinMax scale the given data
 
+        Arguments:
+
+        *data (array_like): Time series data to transform
+        *axis (int): Axis to perform the transformation on
+        """
         loader = DataLoader(data)
         self.transform_assert(loader, axis, scales={})
 
@@ -385,7 +434,14 @@ class MinMaxScaling(DataTransform):
         return transformed
 
     def inverse_transform(self, data, names: list = []):
+        """
+        Inverse transform given data
 
+        Arguments:
+
+        *data (array_like): Time series data to transform
+        *names (Optional[list]): Keys for data to inverse transform if partial transformation is desired  
+        """
         loader = DataLoader(data)
 
         self.inv_transform_assert(loader, names, scales={})

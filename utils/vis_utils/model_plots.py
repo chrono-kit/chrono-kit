@@ -5,7 +5,22 @@ from preprocessing.dataloader import DataLoader
 from utils.evaluation_utils import * 
 
 def plot_predictions(y_true, y_pred, bounds=None, pre_vals=None, figsize=(12,8), colors=None, bounds_fill_alpha=0.7, title=None, style=None, metrics=None):
+    """
+    Utility function for plotting prediction results of the time series model
+    
+    Arguments:
 
+    *y_true (array_like): Ground truth values
+    *y_pred (array_like): Predicted values
+    *bounds (Optional[iterable]): Confidence bounds for the prediction interval
+    *pre_vals (Optional[array_like]): Values that come before the predicted values i.e; last n-points of the training data
+    *figsize (Optional[tuple]): Size of the plot
+    *colors (Optional[iterable]): Colors of the lines/points on the plot
+    *bounds_fill_alpha (Optional[float]): Alpha for the transparency of the filled values between confidence bounds
+    *title (Optional[str]): Title of the plot
+    *style (Optional[str]): Style of the plot 'https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html'
+    *metrics (Optional[iterable]): Evaluation metrics to use for the predictions to report on the plot
+    """
     y_true = DataLoader(y_true).to_numpy()
     y_pred = DataLoader(y_pred).to_numpy()
 
