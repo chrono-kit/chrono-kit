@@ -20,4 +20,4 @@ chronokit requires:
 
 ### User Installation
 
-    pip install chronokit
+    pip install chrono-kit
