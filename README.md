@@ -12,11 +12,11 @@ Or take a look at the [examples](https://github.com/odtuyzt/chrono-kit/tree/main
 
 chronokit requires:
 
-* torch 
-* numpy
-* scipy
-* matplotlib
-* python
+* torch >= 2.0.1
+* numpy >= 1.21.6
+* pandas >= 1.4.4
+* scipy >= 1.9.1
+* matplotlib >= 3.5.3
 
 ### User Installation
 
