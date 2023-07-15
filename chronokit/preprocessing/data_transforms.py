@@ -23,8 +23,9 @@ class DataTransform:
         if loader.data_type == pd.DataFrame:
             data_names = list(loader.organized_df.columns)
             for scale_dict in list(scales.values()):
+                
                 if scale_dict != {}:                
-                    assert (len(list(scale_dict.keys())) == len(data_names)), "Provide same amount of entries as columns"
+                    assert (len(list(scale_dict.keys())) == len(data_names)), f"Provide same amount of entries as columns"
                     assert (set(list(scale_dict.keys())) == set(data_names)), "Provide with the same keys as column names"
 
         else:
@@ -42,10 +43,10 @@ class DataTransform:
 
             else:
                 hmap = {0: "row", 1: "col", -1: "col", -2: "row"}
-                data_names = [f"{hmap[axis]}{i}" for i in range(loader.data.shape[axis])]
+                data_names = [f"{hmap[axis]}{i}" for i in range(loader.data.shape[1-  axis % 2])]
 
                 for scale_dict in list(scales.values()):
-                    if scales != {}:
+                    if scale_dict != {}:
                         assert (len(list(scale_dict.keys())) == len(data_names)), f"Provide same amount of entries as {hmap[axis]}s"
                         assert (set(list(scale_dict.keys())) == set(data_names)), f"Provide keys as {hmap[axis]}0 for {hmap[axis]} of index 0 etc..."
 
@@ -72,7 +73,7 @@ class DataTransform:
         else:
             assert (len(loader.to_tensor().shape) == 2), "Data must be 2 dimensional if the names argument is not provided"
             for scale_dict in list(scales.values()):
-                assert (loader.to_tensor().shape[self.transformed_axis] == len(list(scales.keys()))), f"Expecting\
+                assert (loader.data.shape[1-  self.transformed_axis % 2] == len(list(scale_dict.keys()))), f"Expecting\
  size of axis {self.transformed_axis} = {len(list(scale_dict))} if the names argument is not provided"
 
 
@@ -82,7 +83,7 @@ class BoxCox(DataTransform):
         super().__init__()
         self.lambdas = {}
 
-    def transform(self, data, axis=-1, lambda_values: dict = {}):
+    def transform(self, data, axis=0, lambda_values: dict = {}):
         """
         Transform given data with box-cox method
 
@@ -105,8 +106,8 @@ class BoxCox(DataTransform):
                 if lambda_values == {}:
                     lambda_values = {"lambda": None}
             else:
-                hmap = {0: "row", 1: "col", -1: "col", -2: "row"}
-                data_names = [f"{hmap[axis]}{i}" for i in range(loader.data.shape[axis])]
+                hmap = {0: "col", 1: "row", -1: "row", -2: "col"}
+                data_names = [f"{hmap[axis]}{i}" for i in range(loader.data.shape[1-  axis % 2])]
                 if lambda_values == {}:
                     lambda_values = {name: None for name in data_names}
 
@@ -114,11 +115,10 @@ class BoxCox(DataTransform):
         transform_data = loader.to_tensor()
         transformed = np.zeros(transform_data.shape)
         for ind in range(len(data_names)):
-
             if transform_data.ndim == 1:
                 current_data = transform_data
 
-            elif axis in [-1,1]:
+            elif axis in [0,-2]:
                 current_data = transform_data[:, ind]
             else:
                 current_data = transform_data[ind, :]
@@ -130,7 +130,7 @@ class BoxCox(DataTransform):
             if transform_data.ndim == 1:
                 transformed = boxcoxed
 
-            elif axis in [-1,1]:
+            elif axis in [0,-2]:
                 transformed[:, ind] = boxcoxed
             
             else:
@@ -162,7 +162,7 @@ class BoxCox(DataTransform):
             if transform_data.ndim == 1:
                 current_data = transform_data
 
-            elif self.transformed_axis in [-1,1]:
+            elif self.transformed_axis in [0,-2]:
                 current_data = transform_data[:, ind]
             
             else:
@@ -176,7 +176,7 @@ class BoxCox(DataTransform):
             if transform_data.ndim == 1:
                 transformed = inversed
             
-            elif self.transformed_axis in [-1,1]:
+            elif self.transformed_axis in [0,-2]:
                 transformed[:, ind] = inversed
             
             else:
@@ -205,7 +205,7 @@ class StandardScaling(DataTransform):
         self.locations = {}
         self.scales = {}
 
-    def transform(self, data, axis=-1, locations: dict = {}, scales: dict = {}):
+    def transform(self, data, axis=0, locations: dict = {}, scales: dict = {}):
         """
         Standard scale the given data
 
@@ -239,7 +239,7 @@ class StandardScaling(DataTransform):
                             raise ValueError("cannot scale data with std = 0")
             else:
                 hmap = {0: "row", 1: "col", -1: "col", -2: "row"}
-                data_names = [f"{hmap[axis]}{i}" for i in range(loader.data.shape[axis])]
+                data_names = [f"{hmap[axis]}{i}" for i in range(loader.data.shape[1-  axis % 2])]
                 if locations == {}:
                     locs = loader.to_tensor().mean(axis)
                     locations = {data_names[ind]: locs[ind].item() for ind in range(len(data_names))}
@@ -260,7 +260,7 @@ class StandardScaling(DataTransform):
             if transform_data.ndim == 1:
                 current_data = transform_data
 
-            elif axis in [-1,1]:
+            elif axis in [0,-2]:
                 current_data = transform_data[:, ind]
             
             else:
@@ -276,7 +276,7 @@ class StandardScaling(DataTransform):
             if transform_data.ndim == 1:
                 transformed = standard_scaled
 
-            elif axis in [-1,1]:
+            elif axis in [0,-2]:
                 transformed[:, ind] = standard_scaled
             
             else:
@@ -295,7 +295,7 @@ class StandardScaling(DataTransform):
         """
         loader = DataLoader(data)
 
-        self.inv_transform_assert(loader, names, scales={"lambda": self.lambdas})
+        self.inv_transform_assert(loader, names, scales={"location": self.locations, "scale": self.scales})
 
         transform_data = loader.to_tensor()
         transformed = np.zeros(transform_data.shape)
@@ -305,7 +305,7 @@ class StandardScaling(DataTransform):
             if transform_data.ndim == 1:
                 current_data = transform_data
 
-            elif self.transformed_axis in [-1,1]:
+            elif self.transformed_axis in [0,-2]:
                 current_data = transform_data[:, ind]
             
             else:
@@ -321,7 +321,7 @@ class StandardScaling(DataTransform):
             if transform_data.ndim == 1:
                 transformed = inversed
             
-            elif self.transformed_axis in [-1,1]:
+            elif self.transformed_axis in [0,-2]:
                 transformed[:, ind] = inversed
             
             else:
@@ -352,7 +352,7 @@ class MinMaxScaling(DataTransform):
         self.mins = {}
         self.maxes = {}
 
-    def transform(self, data, axis=-1):
+    def transform(self, data, axis=0):
         """
         MinMax scale the given data
 
@@ -377,20 +377,20 @@ class MinMaxScaling(DataTransform):
         else:
             if loader.data.ndim == 1:
 
-                mins = {"min": loader.to_tensor().min().item()}
-                maxes = {"max": loader.to_tensor().max().item()}
+                mins = {"min": loader.to_numpy().min()}
+                maxes = {"max": loader.to_numpy().max()}
 
                 if mins["min"] == maxes["max"]:
                     raise ValueError("Cannot scale with min(data)=max(data)")
                 
             else:
                 hmap = {0: "row", 1: "col", -1: "col", -2: "row"}
-                data_names = [f"{hmap[axis]}{i}" for i in range(loader.data.shape[axis])]
+                data_names = [f"{hmap[axis]}{i}" for i in range(loader.data.shape[1-  axis % 2])]
                 
                 mins_ = loader.to_tensor().min(axis)
-                mins = {data_names[ind]: mins_[ind].item() for ind in range(len(data_names))}
+                mins = {data_names[ind]: mins_[ind] for ind in range(len(data_names))}
                 maxes_ = loader.to_tensor().max(axis)
-                maxes = {data_names[ind]: maxes_[ind].item() for ind in range(len(data_names))}
+                maxes = {data_names[ind]: maxes_[ind] for ind in range(len(data_names))}
 
                 for key in mins:
 
@@ -408,7 +408,7 @@ class MinMaxScaling(DataTransform):
             if transform_data.ndim == 1:
                 current_data = transform_data
 
-            elif axis in [-1,1]:
+            elif axis in [0,-2]:
                 current_data = transform_data[:, ind]
             
             else:
@@ -419,13 +419,13 @@ class MinMaxScaling(DataTransform):
             xmax = self.maxes[name]
             
             x = current_data.detach().clone()
-            minmax_scaled = torch.div(torch.sub(x,xmin), torch.sub(xmax-xmin))
+            minmax_scaled = torch.div(torch.sub(x,xmin), torch.sub(xmax, xmin))
             minmax_scaled = torch.add(torch.mul(minmax_scaled, (self.ub-self.lb)), self.lb)
 
             if transform_data.ndim == 1:
                 transformed = minmax_scaled
 
-            elif axis in [-1,1]:
+            elif axis in [0,-2]:
                 transformed[:, ind] = minmax_scaled
             
             else:
@@ -454,7 +454,7 @@ class MinMaxScaling(DataTransform):
             if transform_data.ndim == 1:
                 current_data = transform_data
 
-            elif self.transformed_axis in [-1,1]:
+            elif self.transformed_axis in [0,-2]:
                 current_data = transform_data[:, ind]
             
             else:
@@ -471,7 +471,7 @@ class MinMaxScaling(DataTransform):
             if transform_data.ndim == 1:
                 transformed = inversed
             
-            elif self.transformed_axis in [-1,1]:
+            elif self.transformed_axis in [0,-2]:
                 transformed[:, ind] = inversed
             
             else:

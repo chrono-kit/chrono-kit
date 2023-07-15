@@ -1,5 +1,5 @@
 from .model import Smoothing_Model
-from exponential_smoothing.models.smoothing import *
+from chronokit.exponential_smoothing.models.smoothing import *
 
 
 class ExponentialSmoothing:

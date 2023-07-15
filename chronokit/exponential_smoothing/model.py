@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from scipy.optimize import least_squares
 import pandas as pd
-from preprocessing.dataloader import DataLoader
+from chronokit.preprocessing.dataloader import DataLoader
 from .initialization import get_init_method, get_smooth_method
 import scipy.stats as stats
 
@@ -34,13 +34,6 @@ class Model():
         for (k,v) in kwargs.items():
             self.__setattr__(k,v)
 
-    def fit(self, dep_var, indep_var, *args, **kwargs):
-        #This function will be overriden by the child class.
-        raise NotImplementedError("This function is not implemented yet.")
-
-    def predict(self, dep_var, indep_var, *args, **kwargs):
-        # This function will be overriden by the child class.
-        raise NotImplementedError("This function is not implemented yet.")
     
 class Smoothing_Model(Model):
 
@@ -126,6 +119,14 @@ class Smoothing_Model(Model):
 
         if not self.damped:
             self.params["phi"] = 1
+    
+    def fit(self):
+        #This function will be overriden by the child class.
+        raise NotImplementedError("This function is not implemented yet.")
+
+    def predict(self, h: int):
+        # This function will be overriden by the child class.
+        raise NotImplementedError("This function is not implemented yet.")
 
 
 class ETS_Model(Model):
@@ -253,6 +254,14 @@ class ETS_Model(Model):
         bounds = torch.abs(torch.sub(q1_sample, q2_sample))
 
         return bounds
+    
+    def fit(self):
+        #This function will be overriden by the child class.
+        raise NotImplementedError("This function is not implemented yet.")
+
+    def predict(self, h: int, confidence: float = None):
+        # This function will be overriden by the child class.
+        raise NotImplementedError("This function is not implemented yet.")
 
 
 

@@ -4,8 +4,8 @@ import torch
 import scipy.optimize as opt
 from scipy.stats import norm
 from scipy.stats import linregress
-from exponential_smoothing.initialization import ets_methods, smoothing_methods
-from preprocessing.dataloader import DataLoader
+from chronokit.exponential_smoothing.initialization import ets_methods, smoothing_methods
+from chronokit.preprocessing.dataloader import DataLoader
 
 def get_init_method(method):
 

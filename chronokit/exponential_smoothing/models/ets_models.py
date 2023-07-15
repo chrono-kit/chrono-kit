@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from exponential_smoothing.model import ETS_Model
+from chronokit.exponential_smoothing.model import ETS_Model
 
 """
 ETS (Error,Trend,Seasonality) models for time series forecasting.

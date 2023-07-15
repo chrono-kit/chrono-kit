@@ -1,5 +1,5 @@
 from .model import ETS_Model
-from exponential_smoothing.models.ets_models import *
+from chronokit.exponential_smoothing.models.ets_models import *
 
 class ETS(ETS_Model):
 

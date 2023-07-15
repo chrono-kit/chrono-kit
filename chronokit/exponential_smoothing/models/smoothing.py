@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from exponential_smoothing.model import Smoothing_Model
+from chronokit.exponential_smoothing.model import Smoothing_Model
 
 """
 Exponential Smoothing models for time series forecasting.

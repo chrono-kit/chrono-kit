@@ -1,5 +1,5 @@
-from preprocessing.dataloader import DataLoader
-from utils.vis_utils import plot_decomp
+from chronokit.preprocessing.dataloader import DataLoader
+from chronokit.utils.vis_utils import plot_decomp
 import numpy as np
 import pandas as pd
 
