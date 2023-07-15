@@ -10,13 +10,14 @@ Or take a look at the [examples](https://github.com/odtuyzt/time-series-analysis
 
 ### Dependencies
 
-"chronokit" requires:
-* torch 
-* numpy
-* scipy
-* matplotlib
-* python
+chronokit requires:
+* python >= 3.8.17
+* torch >= 1.13.1
+* numpy >= 1.22.0
+* pandas >= 1.4.0
+* scipy >= 1.4.1
+* matplotlib >= 3.2.1
 
 ### User Installation
 
-    pip install chronokit
+    pip install chrono-kit

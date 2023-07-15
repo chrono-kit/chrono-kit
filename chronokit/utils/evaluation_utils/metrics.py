@@ -1,5 +1,5 @@
 import torch
-from preprocessing.dataloader import DataLoader
+from chronokit.preprocessing.dataloader import DataLoader
 
 """Performance evaluation metrics for model predictions"""
 

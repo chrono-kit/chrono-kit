@@ -1,7 +1,7 @@
 import matplotlib
 import matplotlib.style
 import matplotlib.pyplot as plt
-from preprocessing.dataloader import DataLoader
+from chronokit.preprocessing.dataloader import DataLoader
 
 def plot_decomp(trend, seasonal, remainder, figsize=(12,8), colors=None, style=None):
     """
@@ -97,8 +97,8 @@ def plot_train_test_split(train_data, test_data, val_data=None, figsize=(12,8), 
         val = DataLoader(val_data).to_numpy()
         plt.figure(figsize=figsize)
         plt.plot(range(len(train)), train, label="Train", color=use_colors["train"])
-        plt.plot(range(len(train), len(train+val_data)), val, label="Validation", color=use_colors["val"])
-        plt.plot(range(len(train+val_data), len(train+val_data+test_data)), test, label="Test", color=use_colors["test"])
+        plt.plot(range(len(train), len(train)+len(val_data)), val, label="Validation", color=use_colors["val"])
+        plt.plot(range(len(train+val_data), len(train)+len(val_data)+len(test_data)), test, label="Test", color=use_colors["test"])
         plt.legend(loc="best")
         plt.title(title)
         plt.show()
@@ -106,7 +106,7 @@ def plot_train_test_split(train_data, test_data, val_data=None, figsize=(12,8), 
     else:
         plt.figure(figsize=figsize)
         plt.plot(range(len(train)), train, label="Train", color=use_colors["train"])
-        plt.plot(range(len(train), len(train+test)), test, label="Test", color=use_colors["test"])
+        plt.plot(range(len(train), len(train)+len(test)), test, label="Test", color=use_colors["test"])
         plt.legend(loc="best")
         plt.title(title)
         plt.show()
