@@ -48,6 +48,7 @@ def plot_decomp(trend, seasonal, remainder, figsize=(12,8), colors=None, style=N
     ax2.plot(range(len(seasonal)), seasonal, color=use_colors["seasonal"])
     ax2.set_ylabel("Seasonal")
     ax3.scatter(range(len(remainder)), remainder, color=use_colors["remainder"])
+    ax3.plot(range(len(remainder)), [0 for i in remainder], color="black")
     ax3.set_ylabel("Remainder")
     plt.show()
         
