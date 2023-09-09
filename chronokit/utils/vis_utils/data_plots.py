@@ -3,7 +3,7 @@ import matplotlib.style
 import matplotlib.pyplot as plt
 from chronokit.preprocessing.dataloader import DataLoader
 
-def plot_decomp(trend, seasonal, remainder, figsize=(12,8), colors=None, style=None):
+def plot_decomp(trend, seasonal, remainder, method="add", figsize=(12,8), colors=None, style=None):
     """
     Utility function for plotting time series decomposition results
     
@@ -11,11 +11,13 @@ def plot_decomp(trend, seasonal, remainder, figsize=(12,8), colors=None, style=N
 
     *trend (array_like): Trend component of the decomposition
     *seasonal (array_like): Seasonal component of the decomposition
-    *remainer (array_like): Remainders of the decomposition
-    *figsize (Optional[tuple]): Size of the plot
-    *colors (Optional[iterable]): Colors of the lines/points on the plot
-    *style (Optional[str]): Style of the plot 'https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html'
+    *remainder (array_like): Remainders of the decomposition
+    *method Optional[str]: Method of the decomposition, "add" or "mul". If not one of these, will be taken as "add".
+    *figsize Optional[tuple]: Size of the plot
+    *colors Optional[iterable]: Colors of the lines/points on the plot
+    *style Optional[str]: Style of the plot 'https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html'
     """
+
     if style:
         assert(type(style) == str), "Provide style as a string"
         matplotlib.style.use(style)
@@ -40,16 +42,32 @@ def plot_decomp(trend, seasonal, remainder, figsize=(12,8), colors=None, style=N
     trend = DataLoader(trend).to_numpy()
     seasonal = DataLoader(seasonal).to_numpy()
     remainder = DataLoader(remainder).to_numpy()
+
+    if seasonal.ndim > 1:
+        num_seasonals = seasonal.shape[0]
+    else:
+        num_seasonals = 1
     
-    fig, axes = plt.subplots(3, 1, figsize=figsize)
-    ax1, ax2, ax3 = axes     
-    ax1.plot(range(len(trend)), trend, color=use_colors["trend"])
-    ax1.set_ylabel("Trend")
-    ax2.plot(range(len(seasonal)), seasonal, color=use_colors["seasonal"])
-    ax2.set_ylabel("Seasonal")
-    ax3.scatter(range(len(remainder)), remainder, color=use_colors["remainder"])
-    ax3.plot(range(len(remainder)), [0 for i in remainder], color="black")
-    ax3.set_ylabel("Remainder")
+    fig, axes = plt.subplots(2+num_seasonals, 1, figsize=figsize)
+    ax_trend, ax_remainder = axes[0], axes[-1]     
+    ax_trend.plot(range(len(trend)), trend, color=use_colors["trend"])
+    ax_trend.set_ylabel("Trend")
+
+    if num_seasonals > 1:
+        for i in range(num_seasonals):
+            cur_seasonal = seasonal[i]
+            ax_seasonal = axes[i+1]
+            ax_seasonal.plot(range(len(cur_seasonal)), cur_seasonal, color=use_colors["seasonal"])
+            ax_seasonal.set_ylabel(f"Seasonal_{i}")
+    else:
+        ax_seasonal = axes[1]
+        ax_seasonal.plot(range(len(seasonal)), seasonal, color=use_colors["seasonal"])
+        ax_seasonal.set_ylabel(f"Seasonal")
+
+    ax_remainder.scatter(range(len(remainder)), remainder, color=use_colors["remainder"])
+    line_val = 1 if method == "mul" else 0
+    ax_remainder.plot(range(len(remainder)), [line_val for i in remainder], color="black")
+    ax_remainder.set_ylabel("Remainder")
     plt.show()
         
 
