@@ -251,7 +251,7 @@ def __outer_loop(y, trend, seasonal):
 
     return weights, remainder
 
-def STL(dep_var, seasonal_period, degree=1, robust=True, outer_iterations=10, inner_iterations=2, post_smoothing=False, show=False,
+def STL(dep_var, seasonal_period, method="add", degree=1, robust=True, outer_iterations=10, inner_iterations=2, post_smoothing=False, show=False,
         **kwargs):
 
     """
@@ -261,6 +261,7 @@ def STL(dep_var, seasonal_period, degree=1, robust=True, outer_iterations=10, in
 
     *dep_var (array_like): Univariate time series data to perform decomposition on.
     *seasonal_period (int): Seasonality period of the data.
+    *method Optional[str]: Decomposition method to be used; "add" or "mul"
     *degree Optional[int]: Degree used for fitting polynomial p[x] = y on LOESS. Usually degree=0 or degree=1.
     *robust Optional[bool]: Whether to use robustness weights for LOESS smoothing. Default = True.
     *outer_iterations Optional[int]: Number of iterations in the outer loop. Default = 10.
@@ -283,6 +284,8 @@ def STL(dep_var, seasonal_period, degree=1, robust=True, outer_iterations=10, in
     *seasonal (np.ndarray): Seasonal component of the data
     *remainder (np.ndarray): Remainder component of the data
     """
+
+    assert(method=="add" or method=="mul"), "Only method='add' or method='mul' is supported"
 
     #Turn dep_var into np.ndarray if it is not
     if type(dep_var) != np.ndarray:
@@ -357,6 +360,12 @@ def STL(dep_var, seasonal_period, degree=1, robust=True, outer_iterations=10, in
     assert(seasonal_window % 2 == 1 and seasonal_window >= 7), "Window size for seasonal smoothing must be odd and greater than or equal to 7"
     assert(trend_window % 2 == 1 and trend_window > 1), "Window size for trend smoothing must be odd and greater than 1"
     
+    #Take the logarithm if multiplicative decomposition
+    #y=trend*seasonal*remainder -> ln(y)=ln(trend)+ln(seasonal)+ln(remainder)
+    if method == "mul":
+        assert (dep_var.min() > 0), "Data must be strictly positive for multiplicative decomposition"
+        dep_var = np.log(dep_var)
+
     #Initialize trend as 0
     trend = np.zeros(len(dep_var))
 
@@ -386,9 +395,15 @@ def STL(dep_var, seasonal_period, degree=1, robust=True, outer_iterations=10, in
         trend = LOESS(dep_var=trend, window_size=trend_window, degree=trend_degree)
         remainder = dep_var - seasonal - trend
     
-    #If plot, plot the results:
+    #Take the exponents to get actual values for multiplicative decomposition
+    if method == "mul":
+        trend = np.exp(trend)
+        seasonal = np.exp(seasonal)
+        remainder = np.exp(remainder)
+
+    #Plot the results:
     if show:
-        plot_decomp(trend, seasonal, remainder)
+        plot_decomp(trend, seasonal, remainder, method=method)
 
     return trend, seasonal, remainder
     

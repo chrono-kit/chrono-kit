@@ -1,5 +1,6 @@
 from ._classical_decomposition import classical_decomposition
 from ._stl import STL, LOESS
+from ._mstl import MSTL
 
 def LOWESS(dep_var, window_size):
 
