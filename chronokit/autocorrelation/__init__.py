@@ -1,1 +1,1 @@
-from .autocorrelation import *
+from .autocorrelations import *

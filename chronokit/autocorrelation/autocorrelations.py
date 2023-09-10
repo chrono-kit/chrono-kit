@@ -52,5 +52,3 @@ class autocorrelations:
         for i in range(lag+1):
             soln = np.append(soln,self.phi(i)[i-1])
         return soln
-
-
