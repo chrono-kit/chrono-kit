@@ -2,6 +2,7 @@ import matplotlib
 import matplotlib.style
 import matplotlib.pyplot as plt
 from chronokit.preprocessing.dataloader import DataLoader
+import numpy as np
 
 def plot_decomp(trend, seasonal, remainder, figsize=(12,8), colors=None, style=None):
     """
@@ -110,4 +111,45 @@ def plot_train_test_split(train_data, test_data, val_data=None, figsize=(12,8), 
         plt.legend(loc="best")
         plt.title(title)
         plt.show()
+
+def plot_autocorrelation(acf, figsize=(12,8), title: str =None, colors=None, style="ggplot"):
     
+    if style:
+        assert(type(style) == str), "Provide style as a string"
+        matplotlib.style.use(style)
+    
+    use_colors = {"dots": (1,0,0), "lines": (0,0,0)}
+
+    if colors:
+        try:
+            iter(colors)
+        except TypeError:
+            raise TypeError("Provide colors as an iterable")
+        
+        if type(colors) == dict:
+            for key in colors:
+                assert(key in list(use_colors.keys())), f"Ensure that keys in colours dictionary are {list(use_colors.keys())}"
+                use_colors[key] = colors[key]
+
+        else:
+            for ind, c in enumerate(colors):
+                use_colors[list(use_colors.keys())[ind]] = c
+
+    yticks = np.arange(-1, 1.25, 0.25)
+    length = len(acf)
+    xticks = np.arange(0, length, int(length/15))
+
+    plt.figure(figsize=figsize)
+    plt.scatter(np.arange(length), acf, s=48, color=use_colors["dots"], zorder=5)
+    for x in range(length):
+        plt.vlines(x, ymin=0, ymax=acf[x], color=use_colors["lines"], linewidth=2)
+    
+    plt.hlines(np.zeros(length), xmin=0, xmax=length-1, color=(0,0,0))
+    plt.yticks(yticks)
+    plt.xticks(xticks)
+
+    if title:
+        plt.title(title)
+    
+    plt.show()
+

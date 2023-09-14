@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from chronokit.autocorrelation import autocorrelations as acs
+from chronokit.arima import AutoCorrelation as acs
 from statsmodels.tsa.stattools import acf, pacf
 
 class TestACF(unittest.TestCase):
