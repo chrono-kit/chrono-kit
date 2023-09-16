@@ -2,9 +2,12 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+py-modules = ["chronokit"]
+
 [project]
 name = "chrono-kit"
-version = "0.2.0"
+version = "0.3.0"
 authors = [
   { name="ODTU YZT", email="odtuyzt@gmail.com" },
 ]
