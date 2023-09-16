@@ -3,7 +3,7 @@ from chronokit.utils.vis_utils import plot_decomp
 import numpy as np
 import pandas as pd
 
-def classical_decomposition(data, seasonal_period, method = 'add', show = True):
+def classical_decomposition(data, seasonal_period, method = 'add', show = False):
     """
     Classical Decomposition for univariate time series data
 
@@ -33,11 +33,13 @@ def classical_decomposition(data, seasonal_period, method = 'add', show = True):
     if seasonal_period % 2 == 0:
         trend = trend.shift(-1).rolling(2).mean()
     
+    trend = trend.values
+    
     # Detrending
     if method == 'add':
-        detrended = data - trend.values
+        detrended = data - trend
     elif method == 'mul':
-        detrended = data / trend.values
+        detrended = data / trend
 
     # Calculating the seasonal component
     seasonal = np.zeros(shape=(seasonal_period, number_of_cycles))*np.nan

@@ -230,6 +230,7 @@ class StandardScaling(DataTransform):
                         raise ValueError("cannot scale data with std = 0")
         else:
             if loader.data.ndim == 1:
+                data_names = ["data"]
                 if locations == {}:
                     locations = {"loc": loader.to_tensor().mean().item()}
                 if scales == {}:
@@ -376,11 +377,11 @@ class MinMaxScaling(DataTransform):
 
         else:
             if loader.data.ndim == 1:
+                data_names = ["data"]
+                mins = {"data": loader.to_tensor().min().item()}
+                maxes = {"data": loader.to_tensor().max().item()}
 
-                mins = {"min": loader.to_numpy().min()}
-                maxes = {"max": loader.to_numpy().max()}
-
-                if mins["min"] == maxes["max"]:
+                if mins["data"] == maxes["data"]:
                     raise ValueError("Cannot scale with min(data)=max(data)")
                 
             else:
@@ -423,13 +424,13 @@ class MinMaxScaling(DataTransform):
             minmax_scaled = torch.add(torch.mul(minmax_scaled, (self.ub-self.lb)), self.lb)
 
             if transform_data.ndim == 1:
-                transformed = minmax_scaled
+                transformed = minmax_scaled.numpy()
 
             elif axis in [0,-2]:
-                transformed[:, ind] = minmax_scaled
+                transformed[:, ind] = minmax_scaled.numpy()
             
             else:
-                transformed[ind, :] = minmax_scaled
+                transformed[ind, :] = minmax_scaled.numpy()
 
         return transformed
 
