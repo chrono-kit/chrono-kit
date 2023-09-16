@@ -1,0 +1,6 @@
+AirPassengers: This dataset contains the monthly totals of international airline passengers from 1949 to 1960.
+ https://www.kaggle.com/rakannimer/air-passengers
+Sunspots: This dataset contains the monthly number of sunspots observed from 1749 to 2021. It is often used to study patterns in solar activity.
+ https://www.kaggle.com/robervalt/sunspots
+monthly_temp: This dataset contains monthly temperature anomalies from 1880 to 2016.
+ https://datahub.io/core/global-temp#data
