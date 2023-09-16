@@ -4,7 +4,7 @@ from chronokit.exponential_smoothing.models.smoothing import *
 
 class ExponentialSmoothing:
 
-    def __new__(self, dep_var, trend=None, damped=False, seasonal=None, seasonal_periods=None, initialization_method="heuristic", **kwargs):
+    def __new__(self, dep_var, trend=None, seasonal=None, seasonal_periods=None, damped=False, initialization_method="heuristic", **kwargs):
         """
         Exponential Smoothing model for time series data
 
@@ -12,9 +12,9 @@ class ExponentialSmoothing:
 
         *dep_var (array_like): Univariate time series data
         *trend (Optional[str]): Trend component; None or "add"
-        *damped (bool): Damp factor of the trend component; False if trend is None
         *seasonal (Optional[str]): Seasonal component; None, "add" or "mul"
         *seasonal_periods (Optional[int]): Cyclic period of the seasonal component; int or None if seasonal is None
+        *damped (Optional[bool]): Damp factor of the trend component; False if trend is None
         *initialization_method (str): Initialization method to use for the model parameters; "heuristic" or "mle"
 
         Keyword Arguments:
