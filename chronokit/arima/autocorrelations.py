@@ -1,4 +1,4 @@
-from chronokit.preprocessing.dataloader import DataLoader
+from chronokit.preprocessing._dataloader import DataLoader
 from chronokit.utils.vis_utils import plot_autocorrelation
 import numpy as np
 
