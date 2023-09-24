@@ -1,10 +1,10 @@
 import matplotlib
 import matplotlib.style
 import matplotlib.pyplot as plt
-from chronokit.preprocessing.dataloader import DataLoader
+from chronokit.preprocessing._dataloader import DataLoader
 import numpy as np
 
-def plot_decomp(trend, seasonal, remainder, method="add", figsize=(12,8), colors=None, style=None):
+def plot_decomp(trend, seasonal, remainder, method="add", figsize=(12,8), title=None, colors=None, style=None):
     """
     Utility function for plotting time series decomposition results
     
@@ -15,9 +15,12 @@ def plot_decomp(trend, seasonal, remainder, method="add", figsize=(12,8), colors
     *remainder (array_like): Remainders of the decomposition
     *method Optional[str]: Method of the decomposition, "add" or "mul". If not one of these, will be taken as "add".
     *figsize Optional[tuple]: Size of the plot
+    *title
     *colors Optional[iterable]: Colors of the lines/points on the plot
     *style Optional[str]: Style of the plot 'https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html'
     """
+
+    assert (type(title) == str or title is None), "Plot title must be a string"
 
     if style:
         assert(type(style) == str), "Provide style as a string"
@@ -53,6 +56,8 @@ def plot_decomp(trend, seasonal, remainder, method="add", figsize=(12,8), colors
     ax_trend, ax_remainder = axes[0], axes[-1]     
     ax_trend.plot(range(len(trend)), trend, color=use_colors["trend"])
     ax_trend.set_ylabel("Trend")
+    if title:
+        ax_trend.title.set_text(title)
 
     if num_seasonals > 1:
         for i in range(num_seasonals):
@@ -68,7 +73,7 @@ def plot_decomp(trend, seasonal, remainder, method="add", figsize=(12,8), colors
     ax_remainder.scatter(range(len(remainder)), remainder, color=use_colors["remainder"])
     line_val = 1 if method == "mul" else 0
     ax_remainder.plot(range(len(remainder)), [line_val for i in remainder], color="black")
-    ax_remainder.set_ylabel("Remainder")
+    ax_remainder.set_ylabel("Remainder")   
     plt.show()
         
 
@@ -87,7 +92,7 @@ def plot_train_test_split(train_data, test_data, val_data=None, figsize=(12,8), 
     *style (Optional[str]): Style of the plot 'https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html'
     """
     
-    assert (type(title) == "str" or title is None), "Plot title must be a string"
+    assert (type(title) == str or title is None), "Plot title must be a string"
 
     if style:
         assert(type(style) == str), "Provide style as a string"
@@ -133,6 +138,8 @@ def plot_train_test_split(train_data, test_data, val_data=None, figsize=(12,8), 
 
 def plot_autocorrelation(acf, figsize=(12,8), title: str =None, colors=None, style="ggplot"):
     
+    assert (type(title) == str or title is None), "Plot title must be a string"
+
     if style:
         assert(type(style) == str), "Provide style as a string"
         matplotlib.style.use(style)

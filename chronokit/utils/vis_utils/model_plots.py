@@ -1,7 +1,7 @@
 import matplotlib
 import matplotlib.style
 import matplotlib.pyplot as plt
-from chronokit.preprocessing.dataloader import DataLoader
+from chronokit.preprocessing._dataloader import DataLoader
 from chronokit.utils.evaluation_utils.metrics import * 
 
 def plot_predictions(y_true, y_pred, bounds=None, pre_vals=None, figsize=(12,8), colors=None, bounds_fill_alpha=0.7, title=None, style=None, metrics=None):
