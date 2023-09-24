@@ -1,8 +1,8 @@
 import unittest
 import pandas as pd
 import numpy as np
-from statsmodels.tsa.seasonal import STL as sm_stl
-from chronokit.decomposition import STL
+from statsmodels.tsa.seasonal import MSTL as sm_mstl
+from chronokit.decomposition import MSTL
 from chronokit.utils import metrics
 from chronokit.preprocessing.data_transforms import MinMaxScaling
 
@@ -19,19 +19,18 @@ sunspots = scaler.transform(sunspots.values).squeeze(-1)
 temp1 = scaler.transform(temp[temp.columns[0]].values)
 temp2 = scaler.transform(temp[temp.columns[1]].values)
 
-delta = 0.01
+delta = 0.1
 
-class TestSTL(unittest.TestCase):
+class TestMSTL(unittest.TestCase):
 
     def test_passengers(self):
 
-        trend, seasonal, remainder = STL(data=passengers, seasonal_period=12,
-                                         degree=1, robust=True, outer_iterations=10, inner_iterations=2)
+        trend, seasonal, remainder = MSTL(data=passengers, seasonal_periods=[4,12],
+                                          robust=True, outer_iterations=10, inner_iterations=2)
         
-        sm_results = sm_stl(passengers, period=12, robust=True).fit(outer_iter=10, inner_iter=2)
-
+        sm_results = sm_mstl(passengers, periods=[4,12], stl_kwargs={"outer_iter":10, "inner_iter":2, "robust": True}).fit()
         t_diff = metrics.rmse(trend, sm_results.trend)
-        s_diff = metrics.rmse(seasonal, sm_results.seasonal)
+        s_diff = metrics.rmse(seasonal, sm_results.seasonal.T)
         r_diff = metrics.rmse(remainder, sm_results.resid)
         
         print(t_diff, s_diff, r_diff)
@@ -41,13 +40,13 @@ class TestSTL(unittest.TestCase):
     
     def test_passengers_mul(self):
 
-        trend, seasonal, remainder = STL(data=passengers, seasonal_period=12, method="mul",
-                                         degree=1, robust=True, outer_iterations=10, inner_iterations=2)
+        trend, seasonal, remainder = MSTL(data=passengers, seasonal_periods=[4,12], method="mul",
+                                          robust=True, outer_iterations=10, inner_iterations=2)
         
-        sm_results = sm_stl(np.log(passengers), period=12, robust=True).fit(outer_iter=10, inner_iter=2)
+        sm_results = sm_mstl(np.log(passengers), periods=[4,12], stl_kwargs={"outer_iter":10, "inner_iter":2, "robust": True}).fit()
 
         t_diff = metrics.rmse(trend, np.exp(sm_results.trend))
-        s_diff = metrics.rmse(seasonal, np.exp(sm_results.seasonal))
+        s_diff = metrics.rmse(seasonal, np.exp(sm_results.seasonal).T)
         r_diff = metrics.rmse(remainder, np.exp(sm_results.resid))
         
         print(t_diff, s_diff, r_diff)
@@ -57,13 +56,13 @@ class TestSTL(unittest.TestCase):
     
     def test_temp1(self):
 
-        trend, seasonal, remainder = STL(data=temp1, seasonal_period=12,
-                                         degree=1, robust=True, outer_iterations=10, inner_iterations=2)
+        trend, seasonal, remainder = MSTL(data=temp1, seasonal_periods=[4,12],
+                                          robust=True, outer_iterations=10, inner_iterations=2)
         
-        sm_results = sm_stl(temp1, period=12, robust=True).fit(outer_iter=10, inner_iter=2)
+        sm_results = sm_mstl(temp1, periods=[4,12], stl_kwargs={"outer_iter":10, "inner_iter":2, "robust": True}).fit()
 
         t_diff = metrics.rmse(trend, sm_results.trend)
-        s_diff = metrics.rmse(seasonal, sm_results.seasonal)
+        s_diff = metrics.rmse(seasonal, sm_results.seasonal.T)
         r_diff = metrics.rmse(remainder, sm_results.resid)
         
         print(t_diff, s_diff, r_diff)
@@ -73,13 +72,13 @@ class TestSTL(unittest.TestCase):
     
     def test_temp1_mul(self):
 
-        trend, seasonal, remainder = STL(data=temp1, seasonal_period=12, method="mul",
-                                         degree=1, robust=True, outer_iterations=10, inner_iterations=2)
+        trend, seasonal, remainder = MSTL(data=temp1, seasonal_periods=[4,12], method="mul",
+                                          robust=True, outer_iterations=10, inner_iterations=2)
         
-        sm_results = sm_stl(np.log(temp1), period=12, robust=True).fit(outer_iter=10, inner_iter=2)
+        sm_results = sm_mstl(np.log(temp1), periods=[4,12], stl_kwargs={"outer_iter":10, "inner_iter":2, "robust": True}).fit()
 
         t_diff = metrics.rmse(trend, np.exp(sm_results.trend))
-        s_diff = metrics.rmse(seasonal, np.exp(sm_results.seasonal))
+        s_diff = metrics.rmse(seasonal, np.exp(sm_results.seasonal).T)
         r_diff = metrics.rmse(remainder, np.exp(sm_results.resid))
         
         print(t_diff, s_diff, r_diff)
@@ -89,13 +88,13 @@ class TestSTL(unittest.TestCase):
     
     def test_temp2(self):
 
-        trend, seasonal, remainder = STL(data=temp2, seasonal_period=12,
-                                         degree=1, robust=True, outer_iterations=10, inner_iterations=2)
+        trend, seasonal, remainder = MSTL(data=temp2, seasonal_periods=[4,12],
+                                          robust=True, outer_iterations=10, inner_iterations=2)
         
-        sm_results = sm_stl(temp2, period=12, robust=True).fit(outer_iter=10, inner_iter=2)
+        sm_results = sm_mstl(temp2, periods=[4,12], stl_kwargs={"outer_iter":10, "inner_iter":2, "robust": True}).fit()
 
         t_diff = metrics.rmse(trend, sm_results.trend)
-        s_diff = metrics.rmse(seasonal, sm_results.seasonal)
+        s_diff = metrics.rmse(seasonal, sm_results.seasonal.T)
         r_diff = metrics.rmse(remainder, sm_results.resid)
         
         print(t_diff, s_diff, r_diff)
@@ -105,13 +104,13 @@ class TestSTL(unittest.TestCase):
     
     def test_temp2_mul(self):
 
-        trend, seasonal, remainder = STL(data=temp2, seasonal_period=12, method="mul",
-                                         degree=1, robust=True, outer_iterations=10, inner_iterations=2)
+        trend, seasonal, remainder = MSTL(data=temp2, seasonal_periods=[4,12], method="mul",
+                                          robust=True, outer_iterations=10, inner_iterations=2)
         
-        sm_results = sm_stl(np.log(temp2), period=12, robust=True).fit(outer_iter=10, inner_iter=2)
+        sm_results = sm_mstl(np.log(temp2), periods=[4,12], stl_kwargs={"outer_iter":10, "inner_iter":2, "robust": True}).fit()
 
         t_diff = metrics.rmse(trend, np.exp(sm_results.trend))
-        s_diff = metrics.rmse(seasonal, np.exp(sm_results.seasonal))
+        s_diff = metrics.rmse(seasonal, np.exp(sm_results.seasonal).T)
         r_diff = metrics.rmse(remainder, np.exp(sm_results.resid))
         
         print(t_diff, s_diff, r_diff)
@@ -121,13 +120,13 @@ class TestSTL(unittest.TestCase):
     
     def test_sunspots(self):
 
-        trend, seasonal, remainder = STL(data=sunspots, seasonal_period=12,
-                                         degree=1, robust=True, outer_iterations=10, inner_iterations=2)
+        trend, seasonal, remainder = MSTL(data=sunspots, seasonal_periods=[4,12],
+                                          robust=True, outer_iterations=10, inner_iterations=2)
         
-        sm_results = sm_stl(sunspots, period=12, robust=True).fit(outer_iter=10, inner_iter=2)
+        sm_results = sm_mstl(sunspots, periods=[4,12], stl_kwargs={"outer_iter":10, "inner_iter":2, "robust": True}).fit()
 
         t_diff = metrics.rmse(trend, sm_results.trend)
-        s_diff = metrics.rmse(seasonal, sm_results.seasonal)
+        s_diff = metrics.rmse(seasonal, sm_results.seasonal.T)
         r_diff = metrics.rmse(remainder, sm_results.resid)
         
         print(t_diff, s_diff, r_diff)
@@ -137,13 +136,13 @@ class TestSTL(unittest.TestCase):
     
     def test_sunspots_mul(self):
 
-        trend, seasonal, remainder = STL(data=sunspots, seasonal_period=12, method="mul",
-                                         degree=1, robust=True, outer_iterations=10, inner_iterations=2)
+        trend, seasonal, remainder = MSTL(data=sunspots, seasonal_periods=[4,12], method="mul",
+                                          robust=True, outer_iterations=10, inner_iterations=2)
         
-        sm_results = sm_stl(np.log(sunspots), period=12, robust=True).fit(outer_iter=10, inner_iter=2)
+        sm_results = sm_mstl(np.log(sunspots), periods=[4,12], stl_kwargs={"outer_iter":10, "inner_iter":2, "robust": True}).fit()
 
         t_diff = metrics.rmse(trend, np.exp(sm_results.trend))
-        s_diff = metrics.rmse(seasonal, np.exp(sm_results.seasonal))
+        s_diff = metrics.rmse(seasonal, np.exp(sm_results.seasonal).T)
         r_diff = metrics.rmse(remainder, np.exp(sm_results.resid))
         
         print(t_diff, s_diff, r_diff)

@@ -4,9 +4,9 @@ import numpy as np
 from statsmodels.tsa.seasonal import seasonal_decompose as sm_classical
 from chronokit.decomposition import classical_decomposition
 
-passengers = pd.read_csv("/home/hasan/Desktop/Codes/yzt/datasets/AirPassengers.csv", index_col=0)
-sunspots = pd.read_csv("/home/hasan/Desktop/Codes/yzt/datasets/Sunspots.csv", index_col=0)
-temp = pd.read_csv("/home/hasan/Desktop/Codes/yzt/datasets/monthly_temp.csv", index_col=0)
+passengers = pd.read_csv("../datasets/AirPassengers.csv", index_col=0)
+sunspots = pd.read_csv("../datasets/Sunspots.csv", index_col=0)
+temp = pd.read_csv("../datasets/monthly_temp.csv", index_col=0)
 
 temp1 = temp[temp.columns[0]]
 temp2 = temp[temp.columns[1]]

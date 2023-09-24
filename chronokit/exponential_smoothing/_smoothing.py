@@ -1,16 +1,16 @@
-from .model import Smoothing_Model
+from chronokit.base._smoothing_models  import Smoothing_Model
 from chronokit.exponential_smoothing.models.smoothing import *
 
 
 class ExponentialSmoothing:
 
-    def __new__(self, dep_var, trend=None, seasonal=None, seasonal_periods=None, damped=False, initialization_method="heuristic", **kwargs):
+    def __new__(self, data, trend=None, seasonal=None, seasonal_periods=None, damped=False, initialization_method="heuristic", **kwargs):
         """
         Exponential Smoothing model for time series data
 
         Arguments:
 
-        *dep_var (array_like): Univariate time series data
+        *data (array_like): Univariate time series data
         *trend (Optional[str]): Trend component; None or "add"
         *seasonal (Optional[str]): Seasonal component; None, "add" or "mul"
         *seasonal_periods (Optional[int]): Cyclic period of the seasonal component; int or None if seasonal is None
@@ -36,5 +36,5 @@ class ExponentialSmoothing:
                         ("add", "mul"): HoltWinters,
                                                     }[trend, seasonal]
 
-        return smoothing_class(dep_var, trend=trend, seasonal=seasonal, damped=damped, 
+        return smoothing_class(data, trend=trend, seasonal=seasonal, damped=damped, 
                                seasonal_periods=seasonal_periods, initialization_method=initialization_method, **kwargs)

@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from chronokit.exponential_smoothing.model import Smoothing_Model
+from chronokit.base._smoothing_models import Smoothing_Model
 
 """
 Exponential Smoothing models for time series forecasting.
@@ -10,7 +10,7 @@ and practice. OTexts, 2014.'
 """
 
 class SES(Smoothing_Model):
-    def __init__(self, dep_var, trend=None, seasonal=None, seasonal_periods=None, damped=False, indep_var=None, **kwargs):
+    def __init__(self, data, trend=None, seasonal=None, seasonal_periods=None, damped=False, **kwargs):
         """Implementation of Simple Exponential Smoothing"""
         self.trend = None
         self.damped = False
@@ -19,7 +19,7 @@ class SES(Smoothing_Model):
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
         
-        super().__init__(dep_var, self.trend, self.seasonal, self.seasonal_periods, self.damped, **kwargs)
+        super().__init__(data, self.trend, self.seasonal, self.seasonal_periods, self.damped, **kwargs)
         
         initialize_params = ["alpha"]
         self.__initialize_params(initialize_params)
@@ -41,11 +41,11 @@ class SES(Smoothing_Model):
         Fit the model to the data according to the equations:
         l_t =  alpha*y_t + (1 - alpha)*l_{t-1}
         """
-        self.fitted = torch.zeros(self.dep_var.shape[0])
-        for index,row in enumerate(self.dep_var):
+        self.fitted = torch.zeros(self.data.shape[0])
+        for index,row in enumerate(self.data):
             if index == 0:
                 self.level = self.initial_level
-                self.fitted[0] = row
+                self.fitted[0] = torch.nan
             else:
                 y_hat = self.level
                 lprev = self.level
@@ -68,7 +68,7 @@ class SES(Smoothing_Model):
 
 
 class HoltTrend(Smoothing_Model):
-    def __init__(self, dep_var, trend="add", seasonal=None, seasonal_periods=None, damped=False, indep_var=None, **kwargs):
+    def __init__(self, data, trend="add", seasonal=None, seasonal_periods=None, damped=False, **kwargs):
         """Implementation of Holt's Trend Method"""
         self.trend = "add"
         self.damped = damped
@@ -76,7 +76,7 @@ class HoltTrend(Smoothing_Model):
         self.seasonal_periods = None
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, self.trend, self.seasonal, self.seasonal_periods, self.damped, **kwargs)
+        super().__init__(data, self.trend, self.seasonal, self.seasonal_periods, self.damped, **kwargs)
         
         initialize_params = ["alpha", "beta"]
         if self.damped:
@@ -112,19 +112,18 @@ class HoltTrend(Smoothing_Model):
         b_t = beta * (l_t - l_{t-1}) + (1 - beta)*phi*b_{t-1}
         """
         
-        self.fitted = torch.zeros(size=self.dep_var.shape)
-        for index, row in enumerate(self.dep_var):
+        self.fitted = torch.zeros(size=self.data.shape)
+        for index, row in enumerate(self.data):
             if index == 0:
                 self.level = self.initial_level
                 self.trend = self.initial_trend
-                self.fitted[0] = row[0]
+                self.fitted[0] = torch.nan
             else:
                 y_hat = torch.add(self.level, torch.mul(self.phi, self.trend))
                 lprev, bprev = self.level, self.trend
                 self.__smooth_level(row, lprev, bprev)
                 self.__smooth_trend(lprev, bprev)
                 self.fitted[index] = y_hat
-        
 
     def predict(self, h):
         """
@@ -146,7 +145,7 @@ class HoltTrend(Smoothing_Model):
         return self.forecast
     
 class HoltWinters(Smoothing_Model):
-    def __init__(self, dep_var, trend="add", seasonal="add", seasonal_periods=4, damped=False, indep_var=None, **kwargs):
+    def __init__(self, data, trend="add", seasonal="add", seasonal_periods=4, damped=False, **kwargs):
         "Implementation of Holt-Winters' Seasonal Method"
         self.trend = trend
         self.damped = damped
@@ -154,7 +153,7 @@ class HoltWinters(Smoothing_Model):
         self.seasonal_periods = seasonal_periods
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, self.trend, self.seasonal, self.seasonal_periods, self.damped, **kwargs)
+        super().__init__(data, self.trend, self.seasonal, self.seasonal_periods, self.damped, **kwargs)
         
         initialize_params = ["alpha", "beta", "gamma"]
         if self.damped:
@@ -225,16 +224,16 @@ class HoltWinters(Smoothing_Model):
         s_t = gamma*(y_t/(l_{t-1} + phi*b_{t-1})) + (1 - y)*s_{t-m}
         """
         
-        self.fitted = torch.zeros(size=self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.data.shape)
 
-        for index, row in enumerate(self.dep_var):
+        for index, row in enumerate(self.data):
 
             if index == 0:
                 self.level = self.initial_level
                 self.trend = self.initial_trend
                 seasonal = self.initial_seasonals[0]
                 self.seasonals = torch.tensor([seasonal])
-                self.fitted[0] = row
+                self.fitted[0] = torch.nan
             
             elif index < self.seasonal_periods:
 

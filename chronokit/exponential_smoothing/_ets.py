@@ -1,15 +1,15 @@
-from .model import ETS_Model
+from chronokit.base._smoothing_models import ETS_Model
 from chronokit.exponential_smoothing.models.ets_models import *
 
 class ETS(ETS_Model):
 
-    def __new__(self, dep_var, error_type="add", trend=None,  seasonal=None, seasonal_periods=None, damped=False, initialization_method="heuristic", **kwargs):
+    def __new__(self, data, error_type="add", trend=None,  seasonal=None, seasonal_periods=None, damped=False, initialization_method="heuristic", **kwargs):
         """
         ETS (Error,Trend,Seasonality) model for time series data
 
         Arguments:
 
-        *dep_var (array_like): Univariate time series data
+        *data (array_like): Univariate time series data
         *error_type (str): Type of error of the ETS model; "add" or "mul"
         *trend (Optional[str]): Trend component; None or "add"
         *seasonal (Optional[str]): Seasonal component; None, "add" or "mul"
@@ -45,5 +45,5 @@ class ETS(ETS_Model):
                         ("add", "mul", "mul"): ETS_MAM,
                                                             }[trend, seasonal, error_type]
 
-        return ets_class(dep_var, trend=trend, seasonal=seasonal, error_type=error_type, damped=damped, 
+        return ets_class(data, trend=trend, seasonal=seasonal, error_type=error_type, damped=damped, 
                          seasonal_periods=seasonal_periods, initialization_method=initialization_method, **kwargs)

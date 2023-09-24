@@ -1,50 +1,21 @@
 import numpy as np
 import torch
 from scipy.optimize import least_squares
-import pandas as pd
-from chronokit.preprocessing.dataloader import DataLoader
-from .initialization import get_init_method, get_smooth_method
 import scipy.stats as stats
-
-class Model():
-    def __init__(self,dep_var, **kwargs):
-        """
-        Base model class for all model classes to inherit from.
-        Child classes are expected to implement their own .fit() and .predict() methods
-        """
-        
-        self.dep_var = DataLoader(dep_var).to_tensor()
-        self.set_kwargs(kwargs)
-
-    
-    def set_allowed_kwargs(self, kwargs: list):
-        """This function sets the allowed keyword arguments for the model."""
-        self.allowed_kwargs = kwargs
-
-
-    def __check_kwargs(self, kwargs: dict):
-          """This function checks if the keyword arguments are valid."""
-          for (k,v) in kwargs.items():
-              if k not in self.allowed_kwargs:
-                  raise ValueError("{key} is not a valid keyword for this model".format(key = k))
-
-    def set_kwargs(self, kwargs: dict):
-        """This function sets the keyword arguments for the model."""
-        self.__check_kwargs(kwargs)
-        for (k,v) in kwargs.items():
-            self.__setattr__(k,v)
-
+from chronokit.preprocessing._dataloader import DataLoader
+from chronokit.exponential_smoothing.initialization import get_init_method, get_smooth_method
+from ._models import Model
     
 class Smoothing_Model(Model):
 
-    def __init__(self, dep_var, trend=None,  seasonal=None,  seasonal_periods=None, damped=False, initialization_method="heuristic", **kwargs):
+    def __init__(self, data, trend=None,  seasonal=None,  seasonal_periods=None, damped=False, initialization_method="heuristic", **kwargs):
         """
         Base class for exponential smoothing methods.
         All smoothing methods inherit from this class and is used for parameter initialization.
         
         Arguments:
 
-        *dep_var (array_like): Univariate time series data
+        *data (array_like): Univariate time series data
         *trend (Optional[str]): Trend component; None or "add"
         *seasonal (Optional[str]): Seasonal component; None, "add" or "mul"
         *seasonal_periods (Optional[int]): Cyclic period of the seasonal component; int or None if seasonal is None
@@ -63,13 +34,16 @@ class Smoothing_Model(Model):
         and practice. OTexts, 2014.'
         """
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, **kwargs)
+        super().__init__(data, **kwargs)
 
         self.trend = trend
         self.damped = damped
         self.seasonal = seasonal
         self.seasonal_periods = seasonal_periods
         self.init_method = initialization_method
+
+        if self.seasonal == "mul":
+            assert (DataLoader(data).to_numpy().min() > 0), "Methods with multiplicative seasonality requires data to be strictly positive"
 
         self.method = get_smooth_method(error=None, trend=trend, damped=damped, seasonal=seasonal)
         
@@ -80,11 +54,11 @@ class Smoothing_Model(Model):
     def __estimate_params(self, init_components, params):
         """Estimate the best parameters to use during fitting and forecasting for the smoothing model"""
         def func(x):
-            if self.dep_var.ndim == 1:
-                dep_var = torch.unsqueeze(self.dep_var, axis=-1)
+            if self.data.ndim == 1:
+                data = torch.unsqueeze(self.data, axis=-1)
             else:
-                dep_var = self.dep_var
-            errs = self.method(dep_var, init_components=init_components, params=x)
+                data = self.data
+            errs = self.method(data, init_components=init_components, params=x)
 
             return np.mean(np.square(np.array(errs)))
 
@@ -94,7 +68,7 @@ class Smoothing_Model(Model):
     
     def initialize_params(self, initialize_params):
         """Initialize the components and the parameters to use during fitting and forecasting for the smoothing model"""
-        self.initial_level, self.initial_trend, self.initial_seasonals = get_init_method(method=self.init_method)(self.dep_var,trend=self.trend, 
+        self.initial_level, self.initial_trend, self.initial_seasonals = get_init_method(method=self.init_method)(self.data,trend=self.trend, 
                                                                                                                   seasonal=self.seasonal, 
                                                                                                                   seasonal_periods=self.seasonal_periods)
 
@@ -131,14 +105,14 @@ class Smoothing_Model(Model):
 
 class ETS_Model(Model):
 
-    def __init__(self, dep_var, error_type="add", trend=None,  seasonal=None, seasonal_periods=None, damped=False, initialization_method="heuristic", **kwargs):
+    def __init__(self, data, error_type="add", trend=None,  seasonal=None, seasonal_periods=None, damped=False, initialization_method="heuristic", **kwargs):
         """
         Base class for ETS models
         All smoothing methods inherit from this class and is used for parameter initialization.
         
         Arguments:
 
-        *dep_var (array_like): Univariate time series data
+        *data (array_like): Univariate time series data
         *error_type (str): Type of error of the ETS model; "add" or "mul"
         *trend (Optional[str]): Trend component; None or "add"
         *seasonal (Optional[str]): Seasonal component; None, "add" or "mul"
@@ -158,7 +132,7 @@ class ETS_Model(Model):
         and practice. OTexts, 2014.'
         """
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var,  **kwargs)
+        super().__init__(data,  **kwargs)
 
         self.trend = trend
         self.damped = damped
@@ -176,11 +150,11 @@ class ETS_Model(Model):
     def __estimate_params(self, init_components, params):
         """Estimate the best parameters to use during fitting and forecasting for the smoothing model"""
         def func(x):
-            if self.dep_var.ndim == 1:
-                dep_var = torch.unsqueeze(self.dep_var, axis=-1)
+            if self.data.ndim == 1:
+                data = torch.unsqueeze(self.data, axis=-1)
             else:
-                dep_var = self.dep_var
-            errs = self.method(dep_var, init_components=init_components, params=x)
+                data = self.data
+            errs = self.method(data, init_components=init_components, params=x)
 
             return np.mean(np.square(np.array(errs)))
 
@@ -190,7 +164,7 @@ class ETS_Model(Model):
     
     def initialize_params(self, initialize_params):
         """Initialize the components and the parameters to use during fitting and forecasting for the smoothing model"""
-        self.initial_level, self.initial_trend, self.initial_seasonals = get_init_method(method=self.init_method)(self.dep_var,trend=self.trend, 
+        self.initial_level, self.initial_trend, self.initial_seasonals = get_init_method(method=self.init_method)(self.data,trend=self.trend, 
                                                                                                                   seasonal=self.seasonal, 
                                                                                                                   seasonal_periods=self.seasonal_periods)
         self.init_components["level"] = self.initial_level,
