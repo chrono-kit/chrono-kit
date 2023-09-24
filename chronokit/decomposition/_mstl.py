@@ -1,17 +1,17 @@
 import numpy as np
 import pandas as pd
-from chronokit.preprocessing import DataLoader
+from chronokit.preprocessing._dataloader import DataLoader
 from chronokit.utils.vis_utils import plot_decomp
 from chronokit.decomposition import STL
         
-def MSTL(dep_var, seasonal_periods, method="add", degrees=None, robust=True, refine_iterations=1,
+def MSTL(data, seasonal_periods, method="add", degrees=None, robust=True, refine_iterations=1,
          outer_iterations=10, inner_iterations=2, post_smoothing=False, show=False, **kwargs):
     """
     Seasonal Trend Decomposition using LOESS for univariate time series data.
 
     Arguments:
 
-    *dep_var (array_like): Univariate time series data to perform decomposition on.
+    *data (array_like): Univariate time series data to perform decomposition on.
     *seasonal_periods (array_like): Seasonality periods of each seasonality component. Must be ordered from the most granular seasonality to the least granular.
     *method Optional[str]: Decomposition method to be used; "add" or "mul"
     *degrees Optional[array_like]: Degrees to be used when performing STL for each of the seasonal component. Usually degree=0 or degree=1.
@@ -40,29 +40,28 @@ def MSTL(dep_var, seasonal_periods, method="add", degrees=None, robust=True, ref
 
     assert(method=="add" or method=="mul"), "Only method='add' or method='mul' is supported"
 
-    #Turn dep_var into np.ndarray if it is not
-    if type(dep_var) != np.ndarray:
-        dep_var = DataLoader(dep_var).to_numpy()
+    #Turn data into np.ndarray if it is not
+    data = DataLoader(data).to_numpy()
 
     #Squeeze if ndim > 1
-    if dep_var.ndim > 1:
-        shape = dep_var.shape
+    if data.ndim > 1:
+        shape = data.shape
 
         if shape[0] == 1:
-            dep_var = dep_var.squeeze(0)
+            data = data.squeeze(0)
         elif shape[1] == 1:
-            dep_var = dep_var.squeeze(1)
+            data = data.squeeze(1)
         #If cannot squeeze to ndim==1, raise ValueError
         else:
-            raise ValueError("dep_var.ndim must be == 1 or squeezable to ndim==1")
-        if dep_var.ndim > 1:
-            raise ValueError("dep_var.ndim must be == 1 or squeezable to ndim==1")
+            raise ValueError("data.ndim must be == 1 or squeezable to ndim==1")
+        if data.ndim > 1:
+            raise ValueError("data.ndim must be == 1 or squeezable to ndim==1")
     
     #Assertions for arguments and keyword arguments
     try:
         for period in seasonal_periods:
             assert(period >= 2), "Each seasonal_period must be >= 2"
-            assert(len(dep_var) > 2*period), "Data must have at least 2 full seasonal cycles for each seasonal period"
+            assert(len(data) > 2*period), "Data must have at least 2 full seasonal cycles for each seasonal period"
         
         seasonal_periods = list(seasonal_periods)
         assert(len(seasonal_periods) >= 1), "Length of seasonal_periods must be >= 1"
@@ -104,27 +103,27 @@ def MSTL(dep_var, seasonal_periods, method="add", degrees=None, robust=True, ref
     #Take the logarithm if multiplicative decomposition
     #y=trend*seasonals*remainder -> ln(y)=ln(trend)+ln(seasonal)+ln(remainder)
     if method == "mul":
-        assert (dep_var.min() > 0), "Data must be strictly positive for multiplicative decomposition"
-        dep_var = np.log(dep_var)
+        assert (data.min() > 0), "Data must be strictly positive for multiplicative decomposition"
+        data = np.log(data)
 
     #Initialize trend as 0
-    trend = np.zeros(len(dep_var))
+    trend = np.zeros(len(data))
 
     #Define an empty array of shape [num_seasonals, num_observations] to store seasonal components
-    seasonals = np.zeros(shape=(len(seasonal_periods), len(dep_var)))
+    seasonals = np.zeros(shape=(len(seasonal_periods), len(data)))
 
     #Loop over the seasonal periods
     for ind, period in enumerate(seasonal_periods):
         
         #Run STL starting from the most granular seasonality and get the seasonal component
-        _, s, _ = STL(dep_var=dep_var, seasonal_period=period, method="add", degree=degrees[ind], robust=robust,
+        _, s, _ = STL(data=data, seasonal_period=period, method="add", degree=degrees[ind], robust=robust,
                         outer_iterations=outer_iterations, inner_iterations=inner_iterations, post_smoothing=post_smoothing,
                         show=False, trend_window=trend_windows[ind], seasonal_window=seasonal_windows[ind],
                         low_pass_window=low_pass_windows[ind], trend_degree=trend_degrees[ind], seasonal_degree=seasonal_degrees[ind],
                         low_pass_degree=low_pass_degrees[ind])
         
         #Deseasonalize the data to remove current seasonal component's effect
-        dep_var -= s
+        data -= s
 
         #Store the current seasonal component inside seasonals array
         seasonals[ind, :] = s
@@ -137,11 +136,11 @@ def MSTL(dep_var, seasonal_periods, method="add", degrees=None, robust=True, ref
             s = seasonals[ind, :]
 
             #Add the seasonality back to the data for refining
-            dep_var += s
+            data += s
 
             #Extract the trend and refined seasonal component
             #The trend component of the decomposition will be the final trend extracted from refining the least granular seasonality 
-            trend, s, _ = STL(dep_var=dep_var, seasonal_period=period, method="add", degree=degrees[ind], robust=robust,
+            trend, s, _ = STL(data=data, seasonal_period=period, method="add", degree=degrees[ind], robust=robust,
                             outer_iterations=outer_iterations, inner_iterations=inner_iterations, post_smoothing=post_smoothing,
                             show=False, trend_window=trend_windows[ind], seasonal_window=seasonal_windows[ind],
                             low_pass_window=low_pass_windows[ind], trend_degree=trend_degrees[ind], seasonal_degree=seasonal_degrees[ind],
@@ -151,11 +150,11 @@ def MSTL(dep_var, seasonal_periods, method="add", degrees=None, robust=True, ref
             seasonals[ind, :] = s
 
             #Deseasonalize the data again, this time using the refined seasonality
-            dep_var -= s
+            data -= s
     
-    #After refining, the data is deseasonalized,i.e; dep_var = y - seasonal_1 - seasonal_2 - ... - seasonal_n
-    #Therefore, extract the remainder by removing trend component from dep_var
-    remainder = dep_var - trend
+    #After refining, the data is deseasonalized,i.e; data = y - seasonal_1 - seasonal_2 - ... - seasonal_n
+    #Therefore, extract the remainder by removing trend component from data
+    remainder = data - trend
 
     #Take the exponents to get actual values for multiplicative decomposition
     if method == "mul":

@@ -1,4 +1,4 @@
-from chronokit.preprocessing.dataloader import DataLoader
+from chronokit.preprocessing._dataloader import DataLoader
 from chronokit.utils.vis_utils import plot_decomp
 import numpy as np
 import pandas as pd
@@ -18,7 +18,7 @@ def classical_decomposition(data, seasonal_period, method = 'add', show = False)
     'Hyndman, Rob J., and George Athanasopoulos. Forecasting: principles
     and practice. OTexts, 2014.'
     """
-    data = DataLoader(data).to_numpy().copy()
+    data = DataLoader(data).to_numpy()
 
     if data.ndim >= 1:
 
