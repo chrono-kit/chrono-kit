@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import torch
+import warnings
 
 class DataLoader:
 
@@ -12,7 +13,8 @@ class DataLoader:
         self.accepted_types = [pd.DataFrame,
                                pd.Series,
                                np.ndarray,
-                               torch.Tensor]
+                               torch.Tensor,
+                               list]
         
         self.data_type = type(data)
         
@@ -21,12 +23,14 @@ class DataLoader:
         if self.data_type == pd.DataFrame:
 
             self.original_df = data
-            self.data = self.organize_df(data)
+            self.data = self.__organize_df(data)
+            if self.operations != []:
+                warnings.warn(f"Some changes were performed in the dataset.\n{self.operations}", stacklevel=2)
         
         else:
             self.data = data
     
-    def organize_df(self, df: pd.DataFrame):
+    def __organize_df(self, df: pd.DataFrame):
 
         """ Method for organizing a possibly unorganized dataframe while also making sure all entries are convertible to tensors
             and keeping track of the operations done on the original dataframe"""
@@ -44,7 +48,7 @@ class DataLoader:
             if dtype == object:
                 try:
                     self.dates = pd.to_datetime(df[col])
-                    self.operations.append(f"Turned entries of column'{col}' into datetime")
+                    self.operations.append(f"Turned entries of column '{col}' into datetime")
 
                     self.data_columns.remove(col)
                     self.organized_df.pop(col)
@@ -68,18 +72,18 @@ class DataLoader:
         """Turn self.data into tensors"""
 
         if type(self.data) == torch.Tensor:
-            return self.data
+            return torch._cast_Float(self.data.detach().clone())
         
         else:
-            return torch.tensor(self.data)
+            return torch.tensor(self.data, dtype=torch.float32).detach().clone()
         
     def to_numpy(self):
 
         """Turn self.data into numpy arrays"""
 
         if type(self.data) == np.ndarray:
-            return self.data
+            return np.float32(self.data.copy())
         
         else:
-            return np.array(self.data)
+            return np.array(self.data, dtype=np.float32).copy()
         
