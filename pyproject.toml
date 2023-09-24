@@ -2,14 +2,9 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-where = ["chronokit"]
-exclude = ["tests"]
-namespaces = true
-
 [project]
 name = "chrono-kit"
-version = "1.0.1"
+version = "1.0.5"
 authors = [
   { name="ODTU YZT", email="odtuyzt@gmail.com" },
 ]
