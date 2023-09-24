@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from chronokit.exponential_smoothing.model import ETS_Model
+from chronokit.base._smoothing_models import ETS_Model
 
 """
 ETS (Error,Trend,Seasonality) models for time series forecasting.
@@ -11,7 +11,7 @@ and practice. OTexts, 2014.'
 
 class ETS_ANN(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
+    def __init__(self, data, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
         """Implementation of ETS method with Additive Errors, No Trend and No Seasonality"""
         
         self.trend = None
@@ -21,7 +21,7 @@ class ETS_ANN(ETS_Model):
         self.error_type = "add"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+        super().__init__(data, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
                                 damped=self.damped, **kwargs)
         
         initialize_params = ["alpha"]
@@ -66,15 +66,15 @@ class ETS_ANN(ETS_Model):
         l_t = l_{t-1} + alpha*e_t
         """
 
-        self.fitted = torch.zeros(size=self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.data.shape)
 
-        for index, row in enumerate(self.dep_var):
+        for index, row in enumerate(self.data):
 
             if index == 0:
                 y_hat = row
                 self.level = self.initial_level
                 self.error = torch.tensor(0, dtype=torch.float32)
-                self.fitted[0] = row
+                self.fitted[0] = torch.nan
             
             else:
                 
@@ -121,7 +121,7 @@ class ETS_ANN(ETS_Model):
 
 class ETS_AAN(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
+    def __init__(self, data, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
         """Implementation of ETS method with Additive Errors, Additive Trend and No Seasonality"""
         self.trend = "add"
         self.damped = damped
@@ -130,7 +130,7 @@ class ETS_AAN(ETS_Model):
         self.error_type = "add"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+        super().__init__(data, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
                                 damped=self.damped, **kwargs)
         
         initialize_params = ["alpha", "beta"]
@@ -217,16 +217,16 @@ class ETS_AAN(ETS_Model):
         b_t = phi*b_{t-1} + beta*e_t
         """
 
-        self.fitted = torch.zeros(size=self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.data.shape)
 
-        for index, row in enumerate(self.dep_var):
+        for index, row in enumerate(self.data):
 
             if index == 0:
                 y_hat = row
                 self.level = self.initial_level
                 self.trend = self.initial_trend
                 self.error = torch.tensor(0, dtype=torch.float32)
-                self.fitted[0] = row
+                self.fitted[0] = torch.nan
             
             else:
                 
@@ -276,7 +276,7 @@ class ETS_AAN(ETS_Model):
         
 class ETS_ANA(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
+    def __init__(self, data, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
         """Implementation of ETS method with Additive Errors, No Trend and Additive Seasonality"""
         self.trend = None
         self.damped = False
@@ -285,7 +285,7 @@ class ETS_ANA(ETS_Model):
         self.error_type = "add"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+        super().__init__(data, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
                                 damped=self.damped, **kwargs)
         
         initialize_params = ["alpha", "gamma"]
@@ -324,7 +324,7 @@ class ETS_ANA(ETS_Model):
         fc_var = torch.add(fc_var, torch.mul(torch.mul(self.gamma, k), torch.add(torch.mul(2, self.alpha), self.gamma)))
         fc_var = torch.mul(self.residual_variance, fc_var)
 
-        return torch.mul(self.c, fc_var)
+        return torch.mul(self.c, torch.sqrt(fc_var))
     
     def __smooth_level(self,lprev): 
         """Calculate the level"""
@@ -350,9 +350,9 @@ class ETS_ANA(ETS_Model):
         s_t = s_{t-m} + gamma*e_t
         """
 
-        self.fitted = torch.zeros(size=self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.data.shape)
 
-        for index, row in enumerate(self.dep_var):
+        for index, row in enumerate(self.data):
 
             if index == 0:
                 y_hat = row
@@ -360,7 +360,7 @@ class ETS_ANA(ETS_Model):
                 self.error = torch.tensor(0, dtype=torch.float32)
                 seasonal = self.initial_seasonals[0]
                 self.seasonals = torch.tensor([seasonal])
-                self.fitted[0] = row
+                self.fitted[0] = torch.nan
                 
             elif index < self.seasonal_periods:
                 
@@ -426,7 +426,7 @@ class ETS_ANA(ETS_Model):
 
 class ETS_AAA(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
+    def __init__(self, data, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
         """Implementation of ETS method with Additive Errors, Additive Trend and Additive Seasonality"""
         self.trend = "add"
         self.damped = damped
@@ -435,7 +435,7 @@ class ETS_AAA(ETS_Model):
         self.error_type = "add"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+        super().__init__(data, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
                                 damped=self.damped, **kwargs)
         
         initialize_params = ["alpha", "beta", "gamma"]
@@ -546,9 +546,9 @@ class ETS_AAA(ETS_Model):
         b_t = phi*b_{t-1} + beta*e_t
         s_t = s_{t-m} + gamma*e_t
         """
-        self.fitted = torch.zeros(size=self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.data.shape)
 
-        for index, row in enumerate(self.dep_var):
+        for index, row in enumerate(self.data):
             if index == 0:
                 y_hat = row
                 self.level = self.initial_level
@@ -556,7 +556,7 @@ class ETS_AAA(ETS_Model):
                 self.error = torch.tensor(0, dtype=torch.float32)
                 seasonal = self.initial_seasonals[0]
                 self.seasonals = torch.tensor([seasonal])
-                self.fitted[0] = row
+                self.fitted[0] = torch.nan
             
             elif index < self.seasonal_periods:
                 
@@ -626,7 +626,7 @@ class ETS_AAA(ETS_Model):
 
 class ETS_ANM(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
+    def __init__(self, data, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
         """Implementation of ETS method with Additive Errors, No Trend and Multiplicative Seasonality"""
         self.trend = None
         self.damped = False
@@ -635,7 +635,7 @@ class ETS_ANM(ETS_Model):
         self.error_type = "add"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+        super().__init__(data, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
                                 damped=self.damped, **kwargs)
         
         initialize_params = ["alpha", "gamma"]
@@ -694,9 +694,9 @@ class ETS_ANM(ETS_Model):
         s_t = s_{t-m} + gamma*e_t/l_{t-1}
         """
 
-        self.fitted = torch.zeros(size=self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.data.shape)
 
-        for index, row in enumerate(self.dep_var):
+        for index, row in enumerate(self.data):
 
             if index == 0:
                 y_hat = row
@@ -704,7 +704,7 @@ class ETS_ANM(ETS_Model):
                 self.error = torch.tensor(0, dtype=torch.float32)
                 seasonal = self.initial_seasonals[0]
                 self.seasonals = seasonal
-                self.fitted[0] = row
+                self.fitted[0] = torch.nan
                 
             elif index < self.seasonal_periods:
                 seasonal = self.initial_seasonals[index]
@@ -761,7 +761,7 @@ class ETS_ANM(ETS_Model):
 
 class ETS_AAM(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
+    def __init__(self, data, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
 
         """Implementation of ETS method with Additive Errors, Additive Trend and Multiplicative Seasonality"""
         self.trend = "add"
@@ -771,7 +771,7 @@ class ETS_AAM(ETS_Model):
         self.error_type = "add"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+        super().__init__(data, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
                                 damped=self.damped, **kwargs)
         
         initialize_params = ["alpha", "beta", "gamma"]
@@ -840,9 +840,9 @@ class ETS_AAM(ETS_Model):
         s_t = s_{t-m} + gamma*e_t/(l_{t-1} + phi*b_{t-1})
         """
 
-        self.fitted = torch.zeros(size=self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.data.shape)
 
-        for index, row in enumerate(self.dep_var):
+        for index, row in enumerate(self.data):
 
             if index == 0:
                 y_hat = row
@@ -851,7 +851,7 @@ class ETS_AAM(ETS_Model):
                 self.error = torch.tensor(0, dtype=torch.float32)
                 seasonal = self.initial_seasonals[0]
                 self.seasonals = seasonal
-                self.fitted[0] = row
+                self.fitted[0] = torch.nan
             
             elif index < self.seasonal_periods:
                 
@@ -916,7 +916,7 @@ class ETS_AAM(ETS_Model):
 
 class ETS_MNN(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
+    def __init__(self, data, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
         """Implementation of ETS method with Multiplicative Errors, No Trend and No Seasonality"""
         self.trend = None
         self.damped = False
@@ -925,7 +925,7 @@ class ETS_MNN(ETS_Model):
         self.error_type = "mul"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+        super().__init__(data, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
                                 damped=self.damped, **kwargs)
         
         initialize_params = ["alpha"]
@@ -975,15 +975,15 @@ class ETS_MNN(ETS_Model):
         l_t = l_{t-1}*(1 + alpha*e_t)
         """
 
-        self.fitted = torch.zeros(size=self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.data.shape)
 
-        for index, row in enumerate(self.dep_var):
+        for index, row in enumerate(self.data):
 
             if index == 0:
                 y_hat = row
                 self.level = self.initial_level
                 self.error = torch.tensor(0, dtype=torch.float32)
-                self.fitted[0] = row
+                self.fitted[0] = torch.nan
             
             else:
                 y_hat = self.level
@@ -1024,7 +1024,7 @@ class ETS_MNN(ETS_Model):
 
 class ETS_MAN(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
+    def __init__(self, data, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
         """Implementation of ETS method with Multiplicative Errors, Additive Trend and No Seasonality"""
         self.trend = "add"
         self.damped = damped
@@ -1033,7 +1033,7 @@ class ETS_MAN(ETS_Model):
         self.error_type = "mul"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+        super().__init__(data, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
                                 damped=self.damped, **kwargs)
         
         initialize_params = ["alpha", "beta"]
@@ -1093,16 +1093,16 @@ class ETS_MAN(ETS_Model):
         b_t = phi*b_{t-1} + beta*(l_{t-1} + phi*b_{t-1})*e_t
         """
 
-        self.fitted = torch.zeros(size=self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.data.shape)
 
-        for index, row in enumerate(self.dep_var):
+        for index, row in enumerate(self.data):
 
             if index == 0:
                 y_hat = row
                 self.level = self.initial_level
                 self.trend = self.initial_trend
                 self.error = torch.tensor(0, dtype=torch.float32)
-                self.fitted[0] = row
+                self.fitted[0] = torch.nan
             
             else:
                 
@@ -1147,7 +1147,7 @@ class ETS_MAN(ETS_Model):
 
 class ETS_MNA(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
+    def __init__(self, data, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
         """Implementation of ETS method with Multiplicative Errors, No Trend and Additive Seasonality"""
         self.trend = None
         self.damped = False
@@ -1156,7 +1156,7 @@ class ETS_MNA(ETS_Model):
         self.error_type = "add"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+        super().__init__(data, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
                                 damped=self.damped, **kwargs)
         
         initialize_params = ["alpha", "gamma"]
@@ -1214,9 +1214,9 @@ class ETS_MNA(ETS_Model):
         s_t = s_{t-m} + gamma*(l_{t-1} + s_{t-m})*e_t
         """
 
-        self.fitted = torch.zeros(size=self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.data.shape)
 
-        for index, row in enumerate(self.dep_var):
+        for index, row in enumerate(self.data):
 
             if index == 0:
                 y_hat = row
@@ -1224,7 +1224,7 @@ class ETS_MNA(ETS_Model):
                 self.error = torch.tensor(0, dtype=torch.float32)
                 seasonal = self.initial_seasonals[0]
                 self.seasonals = torch.tensor([seasonal])
-                self.fitted[0] = row
+                self.fitted[0] = torch.nan
                 
             elif index < self.seasonal_periods:
                 
@@ -1282,7 +1282,7 @@ class ETS_MNA(ETS_Model):
             return self.forecast
 
 class ETS_MAA(ETS_Model):
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
+    def __init__(self, data, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
         """Implementation of ETS method with Multiplicative Errors, Additive Trend and Additive Seasonality"""
         self.trend = "add"
         self.damped = damped
@@ -1291,7 +1291,7 @@ class ETS_MAA(ETS_Model):
         self.error_type = "mul"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+        super().__init__(data, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
                                 damped=self.damped, **kwargs)
         
         initialize_params = ["alpha", "beta", "gamma"]
@@ -1356,9 +1356,9 @@ class ETS_MAA(ETS_Model):
         b_t = phi*b_{t-1} + beta*(l_{t-1} + phi*b_{t-1} + s_{t-m})*e_t
         s_t = s_{t-m} + gamma*(l_{t-1} + phi*b_{t-1} + s_{t-m})*e_t
         """
-        self.fitted = torch.zeros(size=self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.data.shape)
 
-        for index, row in enumerate(self.dep_var):
+        for index, row in enumerate(self.data):
             if index == 0:
                 y_hat = row
                 self.level = self.initial_level
@@ -1366,7 +1366,7 @@ class ETS_MAA(ETS_Model):
                 self.error = torch.tensor(0, dtype=torch.float32)
                 seasonal = self.initial_seasonals[0]
                 self.seasonals = torch.tensor([seasonal])
-                self.fitted[0] = row
+                self.fitted[0] = torch.nan
             
             elif index < self.seasonal_periods:
                 
@@ -1426,7 +1426,7 @@ class ETS_MAA(ETS_Model):
 
 class ETS_MNM(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
+    def __init__(self, data, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
         """Implementation of ETS method with Multiplicative Errors, No Trend and Multiplicative Seasonality"""
         self.trend = None
         self.damped = False
@@ -1435,7 +1435,7 @@ class ETS_MNM(ETS_Model):
         self.error_type = "mul"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+        super().__init__(data, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
                                 damped=self.damped, **kwargs)
         
         initialize_params = ["alpha", "gamma"]
@@ -1493,9 +1493,9 @@ class ETS_MNM(ETS_Model):
         s_t = s_{t-m}*(1 + gamma*e_t)
         """
 
-        self.fitted = torch.zeros(size=self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.data.shape)
 
-        for index, row in enumerate(self.dep_var):
+        for index, row in enumerate(self.data):
 
             if index == 0:
                 y_hat = row
@@ -1503,7 +1503,7 @@ class ETS_MNM(ETS_Model):
                 self.error = torch.tensor(0, dtype=torch.float32)
                 seasonal = self.initial_seasonals[0]
                 self.seasonals = seasonal
-                self.fitted[0] = row
+                self.fitted[0] = torch.nan
                 
             elif index < self.seasonal_periods:
                 seasonal = self.initial_seasonals[index]
@@ -1560,7 +1560,7 @@ class ETS_MNM(ETS_Model):
 
 class ETS_MAM(ETS_Model):
 
-    def __init__(self, dep_var, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
+    def __init__(self, data, trend=None, seasonal=None, error_type=None, damped=False, seasonal_periods=None, **kwargs):
         """Implementation of ETS method with Multiplicative Errors, Additive Trend and Multiplicative Seasonality"""
         self.trend = "add"
         self.damped = damped
@@ -1569,7 +1569,7 @@ class ETS_MAM(ETS_Model):
         self.error_type = "mul"
 
         super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(dep_var, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
+        super().__init__(data, trend=self.trend,  seasonal=self.seasonal, error_type=self.error_type, seasonal_periods=self.seasonal_periods, 
                                 damped=self.damped, **kwargs)
         
         initialize_params = ["alpha", "beta", "gamma"]
@@ -1635,9 +1635,9 @@ class ETS_MAM(ETS_Model):
         s_t = s_{t-m}*(1 + gamma*e_t)
         """
 
-        self.fitted = torch.zeros(size=self.dep_var.shape)
+        self.fitted = torch.zeros(size=self.data.shape)
 
-        for index, row in enumerate(self.dep_var):
+        for index, row in enumerate(self.data):
 
             if index == 0:
                 y_hat = row
@@ -1646,7 +1646,7 @@ class ETS_MAM(ETS_Model):
                 self.error = torch.tensor(0, dtype=torch.float32)
                 seasonal = self.initial_seasonals[0]
                 self.seasonals = seasonal
-                self.fitted[0] = row
+                self.fitted[0] = torch.nan
             
             elif index < self.seasonal_periods:
                 seasonal = self.initial_seasonals[index]

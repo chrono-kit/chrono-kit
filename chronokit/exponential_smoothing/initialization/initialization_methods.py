@@ -5,7 +5,7 @@ import scipy.optimize as opt
 from scipy.stats import norm
 from scipy.stats import linregress
 from chronokit.exponential_smoothing.initialization import ets_methods, smoothing_methods
-from chronokit.preprocessing.dataloader import DataLoader
+from chronokit.preprocessing._dataloader import DataLoader
 
 def get_init_method(method):
 
@@ -154,14 +154,16 @@ def mle_initialization(data, trend=None,damped=False, seasonal=None, error_type=
         params = init_values[-len(model_params):]
         components = components + [seasonal_components] + [seasonal_periods]
 
-        dep_var = DataLoader(data).to_tensor().detach().clone()
+        dep_var = DataLoader(data).to_tensor()
         if dep_var.ndim == 1:
             dep_var = torch.unsqueeze(dep_var, axis=1)
         # Calculate the log likelihood of the model.
         errors = model(dep_var,init_components=components,params=params)
-        loc = np.array(errors).mean()
-        scale = np.array(errors).std()**2
-        log_likelihood = np.sum(norm.logpdf(errors, loc=loc, scale=scale))
+        err = DataLoader(errors).to_numpy()
+        err = err[~np.isnan(err)]
+        loc = np.nanmean(err)
+        scale = np.nanstd(err)**2
+        log_likelihood = np.sum(norm.logpdf(err, loc=loc, scale=scale))
         return -log_likelihood
 
     # Use the optimization function to find the maximum likelihood estimates with random initial values
