@@ -34,4 +34,4 @@ jobs:
       - name: Run Black
         run: python -m black --line-length=100 --target-version=py38 --verbose chronokit
       - name: Run Flake8
-        run: python -m flake8 --max-line-length=100 --ignore=F401,E203,W503,W504 chronokit
+        run: python -m flake8 --max-line-length=100 --ignore=F401,E203,W503,W504 --verbose chronokit
