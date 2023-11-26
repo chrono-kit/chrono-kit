@@ -2,11 +2,11 @@ from ._classical_decomposition import classical_decomposition
 from ._stl import STL, LOESS
 from ._mstl import MSTL
 
-def LOWESS(data, window_size):
 
+def LOWESS(data, window_size):
     """
     Locally Weighted Estimated Scatterplot Smoothing for time series data
-    
+
     Arguments:
 
     *data (array_like): Univariate time seriessdata, must be data.ndim == 1

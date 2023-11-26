@@ -2,13 +2,15 @@ from chronokit.preprocessing._dataloader import DataLoader
 from chronokit.utils.vis_utils import plot_autocorrelation
 import numpy as np
 
+
 class AutoCorrelation:
-    def __init__(self,data):
+    def __init__(self, data):
         self.data = DataLoader(data).to_numpy()
 
     def __p(self, k):
-        '''
-        Calculates the pearson correlation with lag k (for ACF) with the data passed in the constructor.
+        """
+        Calculates the pearson correlation with lag k (for ACF) with the
+        data passed in the constructor.
 
         Arguments:
 
@@ -17,23 +19,25 @@ class AutoCorrelation:
         Returns:
 
         *p (float): Pearson correlation at lag k.
-        '''
+        """
 
-        #Return 1 if lag is 0
+        # Return 1 if lag is 0
         if k == 0:
-            return 1.
-        
-        #Get the length and mean of data
+            return 1.0
+
+        # Get the length and mean of data
         n = len(self.data)
         mean = np.mean(self.data)
 
-        #Calculate the pearson correlation
-        p = np.sum((self.data[:n-k]-mean)*(self.data[k:]-mean))/np.sum((self.data-mean)**2)
+        # Calculate the pearson correlation
+        p = np.sum((self.data[: n - k] - mean) * (self.data[k:] - mean)) / np.sum(
+            (self.data - mean) ** 2
+        )
 
         return p
 
     def acf(self, lag):
-        '''
+        """
         Calculates the autocorrelation function (ACF).
 
         Arguments:
@@ -43,20 +47,21 @@ class AutoCorrelation:
         Returns:
 
         *acfs (array_like): Autocorrelation function with length (lag+1)
-        '''
+        """
 
-        #Initialize empty array
+        # Initialize empty array
         acfs = np.array([])
-        
-        #Calculate autocorrelation for each lag and append it to acfs array
-        for i in range(lag+1):
-            acfs = np.append(acfs,self.__p(i))
+
+        # Calculate autocorrelation for each lag and append it to acfs array
+        for i in range(lag + 1):
+            acfs = np.append(acfs, self.__p(i))
 
         return acfs
 
-    def __phi(self,k):
-        '''
-        Calculates the phi coefficients (for PACF) with the data passed in the constructor using coefficient matrix method.
+    def __phi(self, k):
+        """
+        Calculates the phi coefficients (for PACF) with the data passed in
+        the constructor using coefficient matrix method.
 
         Arguments:
 
@@ -64,64 +69,69 @@ class AutoCorrelation:
 
         Returns:
 
-        *phi (array_like): Phi coefficients for calculation of PACF with length (k+1)
-        '''
-        
-        #If lag is 0, return [1.](as a list for proper usage in pacf function)
+        *phi (array_like): Phi coefficients for calculation
+        of PACF with length (k+1)
+        """
+
+        # If lag is 0, return [1.](as a list for proper usage in pacf function)
         if k == 0:
-            return [1.]
-        
-        #Initialize autocorrelation matrix as a zero kxk zero matrix
-        ac_matrix = np.zeros((k,k))
-        
-        #Initialize solution vector as a zero vector of length k
+            return [1.0]
+
+        # Initialize autocorrelation matrix as a zero kxk zero matrix
+        ac_matrix = np.zeros((k, k))
+
+        # Initialize solution vector as a zero vector of length k
         sol_vector = np.zeros(k)
 
         for i in range(k):
-            #Assign each entry of the solution vector as the pearson coefficient
-            sol_vector[i] = self.__p(i+1)
+            # Assign each entry of the solution vector
+            # as the pearson coefficient
+            sol_vector[i] = self.__p(i + 1)
 
-            #Assign the entries in the autocorrelation matrix as the pearson coefficient of lag |i-j|
+            # Assign the entries in the autocorrelation matrix
+            # as the pearson coefficient of lag |i-j|
             for j in range(k):
-                ac_matrix[i,j] = self.__p(np.abs(i-j))
-        
-        #Take the solution for x of ac_matrix(x) = solution_vector as the phi coefficient
-        phi = np.linalg.solve(ac_matrix,sol_vector)
+                ac_matrix[i, j] = self.__p(np.abs(i - j))
+
+        # Take the solution for x of ac_matrix(x) = solution_vector
+        # as the phi coefficient
+        phi = np.linalg.solve(ac_matrix, sol_vector)
 
         return phi
-    
+
     def pacf(self, lag):
-        '''
+        """
         Calculates the partial autocorrelation function (PACF).
-        
+
         Arguments:
 
         *lag (int): Lag to calculate autocorrelation for.
 
         Returns:
 
-        *pacfs (array_like): Partial Autocorrelation function with length (lag+1)
-        '''
+        *pacfs (array_like): Partial Autocorrelation function
+        with length (lag+1)
+        """
 
-        #Initialize pacfs as an empty array
+        # Initialize pacfs as an empty array
         pacfs = np.array([])
 
-        for i in range(lag+1):
-            #Append the phi coefficient to the pacfs array
-            pacfs = np.append(pacfs,self.__phi(i)[i-1])
+        for i in range(lag + 1):
+            # Append the phi coefficient to the pacfs array
+            pacfs = np.append(pacfs, self.__phi(i)[i - 1])
 
         return pacfs
 
-def acf_plot(data, lags):
 
+def acf_plot(data, lags):
     acorr = AutoCorrelation(data)
 
     acf = acorr.acf(lags)
 
     plot_autocorrelation(acf)
 
-def pacf_plot(data, lags):
 
+def pacf_plot(data, lags):
     acorr = AutoCorrelation(data)
 
     pacf = acorr.pacf(lags)

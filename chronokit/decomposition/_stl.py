@@ -4,6 +4,7 @@ from chronokit.preprocessing._dataloader import DataLoader
 from scipy.linalg import lstsq
 from chronokit.utils.vis_utils import plot_decomp
 
+
 def bi_square(x):
     """
     The bi-square function for robust regression in LOWESS and LOESS.
@@ -17,12 +18,13 @@ def bi_square(x):
     *B(x) (array_like): (1-x^2)^2 if |x| < 1 else 0.
     """
 
-    #Convert to numpy array if x is not a numpy array
-    if type(x) != np.ndarray:
+    # Convert to numpy array if x is not a numpy array
+    if not isinstance(x, np.ndarray):
         x = DataLoader(x).to_numpy()
 
-    #The bi-square function
-    return np.where(np.abs(x) < 1, (1- abs(x)**2)**2, 0)
+    # The bi-square function
+    return np.where(np.abs(x) < 1, (1 - abs(x) ** 2) ** 2, 0)
+
 
 def tri_cube(x):
     """
@@ -37,84 +39,89 @@ def tri_cube(x):
     *w(x) (array_like): (1-|x|^3)^3 if |x| < 1 else 0.
     """
 
-    #Convert to numpy array if x is not a numpy array
-    if type(x) != np.ndarray:
+    # Convert to numpy array if x is not a numpy array
+    if not isinstance(x, np.ndarray):
         x = DataLoader(x).to_numpy()
 
-    #The tri-cube function
-    return np.where(np.abs(x) < 1, (1- abs(x)**3)**3, 0)
+    # The tri-cube function
+    return np.where(np.abs(x) < 1, (1 - abs(x) ** 3) ** 3, 0)
+
 
 def LOESS(data, window_size, degree=1, robustness_weights=None):
-
     """
     Locally Estimated Scatterplot Smoothing for time series data
-    
+
     Arguments:
 
     *data (array_like): Univariate time series data, must be data.ndim == 1
     *window_size (int): Window size for weighting data points.
     *degree Optional[int]: Degree used for fitting polynomial p[x] = y. Usually degree=0 or degree=1
-    *robustness_weights Optional[array_like]: Weights used for robustness to outliers. Defaults to None
+    *robustness_weights Optional[array_like]: Weights used for robustness to outliers.
+    Defaults to None
 
     Returns:
 
     *y_smoothed (np.ndarray): Smoothed values as a result of LOESS.
     """
 
-    #Define a loess function fitting to all of the data at once
+    # Define a loess function fitting to all of the data at once
     def loess(x, y, xi, degree=1, robustness_weights=None, q=None):
         """
         *x (np.ndarray): Data indexes to fit
         *y (np.ndarray): Data to fit, must be ndim == 1
-        *xi (int): Index to assign weight == 1. I.e; the point where the smoothing result matters the most
+        *xi (int): Index to assign weight == 1. I.e;
+            the point where the smoothing result matters the most
         *degree (int): Degree of the polynomial p[x] = y
         *robustness_weights (np.ndarray): Robustness weights for outliers.
-        *q (int): Distance for weighting data points. All x s.t distance(x-xi) >= q will be assigned weights=0. Must be odd.
+        *q (int): Distance for weighting data points.
+            All x s.t distance(x-xi) >= q will be assigned weights=0. Must be odd.
         """
 
         if q:
-            #If q is greater than the max distance from xi, take q as max_dist*q/len(y)
-            max_dist = max(abs(x[0]-xi), abs(x[-1]-xi))
+            # If q is greater than the max distance from xi, take q as max_dist*q/len(y)
+            max_dist = max(abs(x[0] - xi), abs(x[-1] - xi))
             if q > max_dist:
-                q = int(max_dist*q/len(y))
-        
-        #Take q as the half the length of the data to be fit if not given.
-        elif not q:
-            q = int((len(y) - 1)/2)
-        
-        assert(degree >= 0), "Degree must be greater than 0"
+                q = int(max_dist * q / len(y))
 
-        #Calculate distances of each data point to xi
+        # Take q as the half the length of the data to be fit if not given.
+        elif not q:
+            q = int((len(y) - 1) / 2)
+
+        assert degree >= 0, "Degree must be greater than 0"
+
+        # Calculate distances of each data point to xi
         distances = np.abs(x - xi)
-        #Calculate weights by the tricube function, making sure that data points farther than q are given weight 0
+        # Calculate weights by the tricube function, making sure that data points
+        # farther than q are given weight 0
         weights = tri_cube(distances / q)
 
-        #If robustness weights are given, multiply weights so that outliers are given less weights
+        # If robustness weights are given, multiply weights so that outliers are given less weights
         if robustness_weights is not None:
             weights *= robustness_weights
 
-        #Get the vandermonde matrix of x for polynomial fitting
-        A = np.vander(x, degree+1)
-        
-        #Get the w from the fitted equation A*w = y
-        #Multiplying A and y by sqrt(weights) to perform weighted least squares      
-        w, _, _, _ = lstsq(A*np.sqrt(weights[:, np.newaxis]), y*np.sqrt(weights))
-        
-        #Calculate y_smoothed by y_smoothed = w0*x^d + w1*x^(d-1) + .....
+        # Get the vandermonde matrix of x for polynomial fitting
+        A = np.vander(x, degree + 1)
+
+        # Get the w from the fitted equation A*w = y
+        # Multiplying A and y by sqrt(weights) to perform weighted least squares
+        w, _, _, _ = lstsq(A * np.sqrt(weights[:, np.newaxis]), y * np.sqrt(weights))
+
+        # Calculate y_smoothed by y_smoothed = w0*x^d + w1*x^(d-1) + .....
         y_smoothed = np.polyval(w, x)
 
         return y_smoothed
 
-    #Calculate the half of the window size to use for weighting data points in loess(used as q), must be odd
-    half_window = int((window_size-1)/2)
+    # Calculate the half of the window size to use for weighting data points in loess(used as q),
+    # must be odd
+    half_window = int((window_size - 1) / 2)
     if half_window % 2 == 0:
         half_window += 1
-    
-    #Turn data into np.ndarray if it is not
-    if type(data) != np.ndarray:
+
+    # Turn data into np.ndarray if it is not
+    if not isinstance(data, np.ndarray):
         data = DataLoader(data).to_numpy()
 
-    #Squeeze if ndim > 1
+    # Squeeze if ndim > 1
     if data.ndim > 1:
         shape = data.shape
 
@@ -122,32 +129,50 @@ def LOESS(data, window_size, degree=1, robustness_weights=None):
             data = data.squeeze(0)
         elif shape[1] == 1:
             data = data.squeeze(1)
-        #If cannot squeeze to ndim==1, raise ValueError
+        # If cannot squeeze to ndim==1, raise ValueError
         else:
             raise ValueError("data.ndim must be == 1 or squeezable to ndim==1")
         if data.ndim > 1:
             raise ValueError("data.ndim must be == 1 or squeezable to ndim==1")
 
-    #Define empty array to store LOESS results
+    # Define empty array to store LOESS results
     smoothed = np.zeros(len(data))
 
-    #Define an array indexing each data point
+    # Define an array indexing each data point
     x = np.arange(len(data))
 
-    #For each data point(xi), fit loess by giving full weight to xi and store the result in the smoothed array
+    # For each data point(xi), fit loess by giving full weight to xi and
+    # store the result in the smoothed array
     for xi in x:
+        # Fit loess by weights centered around xi
+        smooth = loess(
+            x,
+            data,
+            xi,
+            degree=degree,
+            robustness_weights=robustness_weights,
+            q=half_window,
+        )
 
-        #Fit loess by weights centered around xi
-        smooth = loess(x, data, xi, degree=degree, robustness_weights=robustness_weights, q=half_window)
-
-        #Store the fitted value for data[xi] in the smoothed array
+        # Store the fitted value for data[xi] in the smoothed array
         smoothed[xi] = smooth[xi]
 
     return smoothed
 
 
-def __inner_loop(y, trend, weights, seasonal_period, seasonal_degree=1, trend_degree=1, low_pass_degree=1,
-               seasonal_smoothing=None, trend_smoothing=None, low_pass_smoothing=None, n_iterations=2):
+def __inner_loop(
+    y,
+    trend,
+    weights,
+    seasonal_period,
+    seasonal_degree=1,
+    trend_degree=1,
+    low_pass_degree=1,
+    seasonal_smoothing=None,
+    trend_smoothing=None,
+    low_pass_smoothing=None,
+    n_iterations=2,
+):
     """
     Inner loop of the Seasoal-Trend Decomposition using LOESS (STL).
 
@@ -165,71 +190,88 @@ def __inner_loop(y, trend, weights, seasonal_period, seasonal_degree=1, trend_de
     """
 
     for i in range(n_iterations):
-        #Define empty array for storing smoothing results for cycle_subseries
-        ct = np.zeros(len(y)+2*seasonal_period)
-        
-        #Detrend by subtracting trend component
+        # Define empty array for storing smoothing results for cycle_subseries
+        ct = np.zeros(len(y) + 2 * seasonal_period)
+
+        # Detrend by subtracting trend component
         detrended = y - trend
-        
-        #Define empty list to store each cycle subseries
+
+        # Define empty list to store each cycle subseries
         cycle_subseries = []
-        
+
         for i in range(seasonal_period):
-            #Get each cycle-subseries from detrended data and store them in the cycle_subseries list
+            # Get each cycle-subseries from detrended data and
+            # store them in the cycle_subseries list
             cycle_subseries.append(detrended[range(i, len(y), seasonal_period)])
 
-        #Loop over the cycle_subseries
+        # Loop over the cycle_subseries
         for ind, subseries in enumerate(cycle_subseries):
-            #Get the robustness weights corresponding to current cycle-subseries
+            # Get the robustness weights corresponding to current cycle-subseries
             s_weights = weights[range(ind, len(weights), seasonal_period)]
-            
-            #Get the results of the LOESS smoothing for the currenc cycle-subseries
-            loess_res = LOESS(data=subseries, window_size=seasonal_smoothing, degree=seasonal_degree, 
-                              robustness_weights=s_weights)
-            
-            #For the 2*seasonal_periods amount of values that will be lost during low pass filtering;
-            #Apply scipy.lstsq to extrapolate values for the endpoints of the cycle subseries based on LOESS results
-            extrax= np.arange(len(loess_res)) + 1
-            w0,_,_,_ = lstsq(np.vander(extrax, seasonal_degree+1), loess_res)
-            w1,_,_,_ = lstsq(np.vander(extrax, seasonal_degree+1), loess_res)
+
+            # Get the results of the LOESS smoothing for the currenc cycle-subseries
+            loess_res = LOESS(
+                data=subseries,
+                window_size=seasonal_smoothing,
+                degree=seasonal_degree,
+                robustness_weights=s_weights,
+            )
+
+            # For the 2*seasonal_periods amount of values that will be lost
+            # during low pass filtering;
+            # Apply scipy.lstsq to extrapolate values for the endpoints of the cycle subseries
+            # based on LOESS results
+            extrax = np.arange(len(loess_res)) + 1
+            w0, _, _, _ = lstsq(np.vander(extrax, seasonal_degree + 1), loess_res)
+            w1, _, _, _ = lstsq(np.vander(extrax, seasonal_degree + 1), loess_res)
             loess_res = list(loess_res)
             loess_res.insert(0, np.polyval(w0, 0))
-            loess_res.insert(-1,np.polyval(w1, extrax[-1]+1))
+            loess_res.insert(-1, np.polyval(w1, extrax[-1] + 1))
 
-            #Store the results of the LOESS on the current cycle-subseris in the ct array.
+            # Store the results of the LOESS on the current cycle-subseris in the ct array.
             ct[range(ind, len(ct), seasonal_period)] = np.array(loess_res)
-        
-        #Define a pd.Series equal to ct for low pass fitering
+
+        # Define a pd.Series equal to ct for low pass fitering
         lt = pd.Series(np.copy(ct))
 
-        #Perform two centered moving averages of length seasonal_period
+        # Perform two centered moving averages of length seasonal_period
         if seasonal_period % 2 == 0:
-            #If the seasonal_period is even, ensure the centered moving averages result in,
-            #seasonal_period amount of data points are NaN at each end point
+            # If the seasonal_period is even, ensure the centered moving averages result in,
+            # seasonal_period amount of data points are NaN at each end point
             lt = lt.rolling(seasonal_period).mean()
             lt = lt[-1::-1].rolling(seasonal_period).mean()
             lt = lt[-1::-1]
         else:
-            #If the seasonal_period is odd, perform centered moving averages normally
+            # If the seasonal_period is odd, perform centered moving averages normally
             lt = lt.rolling(seasonal_period, center=True).mean()
             lt = lt.rolling(seasonal_period, center=True).mean()
 
-        #Perform another centered moving average of length 3
+        # Perform another centered moving average of length 3
         lt = lt.rolling(3, center=True).mean()
-        #Drop the NaN values
+        # Drop the NaN values
         lt = lt.iloc[seasonal_period:-seasonal_period].values
-        #Perform LOESS on the low pass filter
-        lt = LOESS(data=lt, window_size=low_pass_smoothing, degree=low_pass_degree, robustness_weights=None)
-        #Calculate seasonal component by ct-lt
+        # Perform LOESS on the low pass filter
+        lt = LOESS(
+            data=lt,
+            window_size=low_pass_smoothing,
+            degree=low_pass_degree,
+            robustness_weights=None,
+        )
+        # Calculate seasonal component by ct-lt
         seasonal = ct[seasonal_period:-seasonal_period] - lt
 
-        #Calculate the trend component by de-seasonalizing
+        # Calculate the trend component by de-seasonalizing
         trend = y - seasonal
-        #Perform LOESS on the trend component
-        trend = LOESS(data=trend, window_size=trend_smoothing, degree=trend_degree,
-                      robustness_weights=weights)
+        # Perform LOESS on the trend component
+        trend = LOESS(
+            data=trend,
+            window_size=trend_smoothing,
+            degree=trend_degree,
+            robustness_weights=weights,
+        )
 
     return trend, seasonal
+
 
 def __outer_loop(y, trend, seasonal):
     """
@@ -240,20 +282,30 @@ def __outer_loop(y, trend, seasonal):
     *seasonal (np.ndarray): Seasonal component of the data
     """
 
-    #Calculate the remainder
+    # Calculate the remainder
     remainder = y - trend - seasonal
-    
-    #Calculate robustness weights based on the remainder
-    #Ensure that any remainder >= h is assigned a weight of 0
-    #The bigger the remainder, the less weight given to the datapoint
-    h = 6*np.median(abs(remainder))
-    weights = bi_square(abs(remainder)/h)
+
+    # Calculate robustness weights based on the remainder
+    # Ensure that any remainder >= h is assigned a weight of 0
+    # The bigger the remainder, the less weight given to the datapoint
+    h = 6 * np.median(abs(remainder))
+    weights = bi_square(abs(remainder) / h)
 
     return weights, remainder
 
-def STL(data, seasonal_period, method="add", degree=1, robust=True, outer_iterations=10, inner_iterations=2, post_smoothing=False, show=False,
-        **kwargs):
 
+def STL(
+    data,
+    seasonal_period,
+    method="add",
+    degree=1,
+    robust=True,
+    outer_iterations=10,
+    inner_iterations=2,
+    post_smoothing=False,
+    show=False,
+    **kwargs,
+):
     """
     Seasonal Trend Decomposition using LOESS for univariate time series data.
 
@@ -262,11 +314,13 @@ def STL(data, seasonal_period, method="add", degree=1, robust=True, outer_iterat
     *data (array_like): Univariate time series data to perform decomposition on.
     *seasonal_period (int): Seasonality period of the data.
     *method Optional[str]: Decomposition method to be used; "add" or "mul"
-    *degree Optional[int]: Degree used for fitting polynomial p[x] = y on LOESS. Usually degree=0 or degree=1.
+    *degree Optional[int]: Degree used for fitting polynomial p[x] = y on LOESS.
+        Usually degree=0 or degree=1.
     *robust Optional[bool]: Whether to use robustness weights for LOESS smoothing. Default = True.
     *outer_iterations Optional[int]: Number of iterations in the outer loop. Default = 10.
     *inner_iterations Optional[int]: Number of iterations in the inner loop. Defaut = 2.
-    *post_smoothing Optional[bool]: Whether to perform a final LOESS smoothing for trend and seasonal components post operation. Default = False.
+    *post_smoothing Optional[bool]: Whether to perform a final LOESS smoothing for trend and
+        seasonal components post operation. Default = False.
     *show Optional[bool]: Whether to plot the decomposition results. Default = False.
 
     Keyword Arguments:
@@ -274,9 +328,12 @@ def STL(data, seasonal_period, method="add", degree=1, robust=True, outer_iterat
     **trend_window (int): Window size to use on LOESS smoothing for the trend component.
     **seasonal_window (int): Window size to use on LOESS smoothing for the seasonal component.
     **low_pass_window (int): Window size to use on LOESS smoothing for low pass filtering.
-    **trend_degree (int): Degree used on LOESS for the trend component. Will override the argument *degree for the trend component.
-    **seasonal_degree (int): Degree used on LOESS for the seasonal component. Will override the argument *degree for the seasonal component.
-    **low_pass_degree (int): Degree used on LOESS for the low pass filtering. Will override the argument *degree for the low pass filtering.
+    **trend_degree (int): Degree used on LOESS for the trend component.
+        Will override the argument *degree for the trend component.
+    **seasonal_degree (int): Degree used on LOESS for the seasonal component.
+        Will override the argument *degree for the seasonal component.
+    **low_pass_degree (int): Degree used on LOESS for the low pass filtering.
+        Will override the argument *degree for the low pass filtering.
 
     Returns:
 
@@ -288,12 +345,12 @@ def STL(data, seasonal_period, method="add", degree=1, robust=True, outer_iterat
     https://www.scb.se/contentassets/ca21efb41fee47d293bbee5bf7be7fb3/stl-a-seasonal-trend-decomposition-procedure-based-on-loess.pdf
     """
 
-    assert(method=="add" or method=="mul"), "Only method='add' or method='mul' is supported"
+    assert method == "add" or method == "mul", "Only method='add' or method='mul' is supported"
 
-    #Turn data into np.ndarray if it is not
+    # Turn data into np.ndarray if it is not
     data = DataLoader(data).to_numpy()
 
-    #Squeeze if ndim > 1
+    # Squeeze if ndim > 1
     if data.ndim > 1:
         shape = data.shape
 
@@ -301,23 +358,29 @@ def STL(data, seasonal_period, method="add", degree=1, robust=True, outer_iterat
             data = data.squeeze(0)
         elif shape[1] == 1:
             data = data.squeeze(1)
-        #If cannot squeeze to ndim==1, raise ValueError
+        # If cannot squeeze to ndim==1, raise ValueError
         else:
             raise ValueError("data.ndim must be == 1 or squeezable to ndim==1")
         if data.ndim > 1:
             raise ValueError("data.ndim must be == 1 or squeezable to ndim==1")
-    
-    #Assertions for making sure parameters are valid
-    assert(seasonal_period >= 2), "seasonal_period must be >= 2"
-    assert(len(data) > 2*seasonal_period), "Data must have at least 2 full seasonal cycles"
-    
-    allowed_kwargs = ["trend_window", "seasonal_window", "low_pass_window",
-                      "trend_degree", "seasonal_degree", "low_pass_degree"]
-    
-    #Get the keyword arguments
-    for k,v in kwargs.items():
+
+    # Assertions for making sure parameters are valid
+    assert seasonal_period >= 2, "seasonal_period must be >= 2"
+    assert len(data) > 2 * seasonal_period, "Data must have at least 2 full seasonal cycles"
+
+    allowed_kwargs = [
+        "trend_window",
+        "seasonal_window",
+        "low_pass_window",
+        "trend_degree",
+        "seasonal_degree",
+        "low_pass_degree",
+    ]
+
+    # Get the keyword arguments
+    for k, v in kwargs.items():
         if k not in allowed_kwargs:
-            raise ValueError("{key} is not a valid keyword for this model".format(key = k))
+            raise ValueError("{key} is not a valid keyword for this model".format(key=k))
         locals()[k] = v
 
     trend_window = locals().get("trend_window", None)
@@ -325,29 +388,30 @@ def STL(data, seasonal_period, method="add", degree=1, robust=True, outer_iterat
     low_pass_window = locals().get("low_pass_window", None)
     trend_degree = locals().get("trend_degree", degree)
     seasonal_degree = locals().get("seasonal_degree", degree)
-    low_pass_degree= locals().get("low_pass_degree", degree)
+    low_pass_degree = locals().get("low_pass_degree", degree)
 
-    #Assertions for making sure parameters are valid
-    assert(degree >= 0), "Degree must be greater than 0"
-    assert(trend_degree >= 0), "Trend degree must be greater than 0"
-    assert(seasonal_degree >= 0), "Seasonal degree must be greater than 0"
-    assert(low_pass_degree >= 0), "Low pass degree must be greater than 0"
+    # Assertions for making sure parameters are valid
+    assert degree >= 0, "Degree must be greater than 0"
+    assert trend_degree >= 0, "Trend degree must be greater than 0"
+    assert seasonal_degree >= 0, "Seasonal degree must be greater than 0"
+    assert low_pass_degree >= 0, "Low pass degree must be greater than 0"
 
-    #If low pass window is not given,take it as the least odd integer greater than or equal to seasonal period
+    # If low pass window is not given,take it as the least odd integer greater than or
+    # equal to seasonal period
     if not low_pass_window:
         if seasonal_period % 2 == 1:
             low_pass_window = seasonal_period
         else:
             low_pass_window = seasonal_period + 1
 
-    #If seasonal_window is not given, take it as 7
+    # If seasonal_window is not given, take it as 7
     if not seasonal_window:
         seasonal_window = 7
 
-    #If trend_window is not given, take it as the least odd integer,denote it as k, satisfying;
-    #k >= 1.5*seasonal_period/(1- 1/(1.5*seasonal_window))
+    # If trend_window is not given, take it as the least odd integer,denote it as k, satisfying;
+    # k >= 1.5*seasonal_period/(1- 1/(1.5*seasonal_window))
     if not trend_window:
-        trend_window = 1.5*seasonal_period/(1- 1/(1.5*seasonal_window))
+        trend_window = 1.5 * seasonal_period / (1 - 1 / (1.5 * seasonal_window))
         if trend_window != int(trend_window):
             trend_window = int(trend_window) + 1
         else:
@@ -355,57 +419,74 @@ def STL(data, seasonal_period, method="add", degree=1, robust=True, outer_iterat
         if trend_window % 2 == 0:
             trend_window += 1
 
-    #Assertions for making sure parameters are valid
-    assert(outer_iterations >= 1), "Number of outer loop iterations must be >= 1"
-    assert(inner_iterations >= 1), "Number of inner loop iterations must be >= 1"
-    assert(low_pass_window % 2 == 1 and low_pass_window >= seasonal_period), "Window size for low pass filtering must be odd and greater than or equal to the seasonal period"
-    assert(seasonal_window % 2 == 1 and seasonal_window >= 7), "Window size for seasonal smoothing must be odd and greater than or equal to 7"
-    assert(trend_window % 2 == 1 and trend_window > 1), "Window size for trend smoothing must be odd and greater than 1"
-    
-    #Take the logarithm if multiplicative decomposition
-    #y=trend*seasonal*remainder -> ln(y)=ln(trend)+ln(seasonal)+ln(remainder)
+    # Assertions for making sure parameters are valid
+    assert outer_iterations >= 1, "Number of outer loop iterations must be >= 1"
+    assert inner_iterations >= 1, "Number of inner loop iterations must be >= 1"
+    assert (
+        low_pass_window % 2 == 1 and low_pass_window >= seasonal_period
+    ), "Window size for low pass filtering must be odd and greater than or equal to \
+        the seasonal period"
+    assert (
+        seasonal_window % 2 == 1 and seasonal_window >= 7
+    ), "Window size for seasonal smoothing must be odd and greater than or equal to 7"
+    assert (
+        trend_window % 2 == 1 and trend_window > 1
+    ), "Window size for trend smoothing must be odd and greater than 1"
+
+    # Take the logarithm if multiplicative decomposition
+    # y=trend*seasonal*remainder -> ln(y)=ln(trend)+ln(seasonal)+ln(remainder)
     if method == "mul":
-        assert (data.min() > 0), "Data must be strictly positive for multiplicative decomposition"
+        assert data.min() > 0, "Data must be strictly positive for multiplicative decomposition"
         data = np.log(data)
 
-    #Initialize trend as 0
+    # Initialize trend as 0
     trend = np.zeros(len(data))
 
-    #Initialize robustness weight as 1
+    # Initialize robustness weight as 1
     weights = np.ones(len(data))
 
     for it in range(outer_iterations):
-        
-        #Perform the inner loop and get the trend and seasonal components
-        trend, seasonal = __inner_loop(y=data, trend=trend, weights=weights, seasonal_period=seasonal_period,
-                                       seasonal_degree=seasonal_degree, trend_degree=trend_degree, low_pass_degree=low_pass_degree,
-                                       seasonal_smoothing=seasonal_window, trend_smoothing=trend_window,
-                                       low_pass_smoothing=low_pass_window, n_iterations=inner_iterations)
+        # Perform the inner loop and get the trend and seasonal components
+        trend, seasonal = __inner_loop(
+            y=data,
+            trend=trend,
+            weights=weights,
+            seasonal_period=seasonal_period,
+            seasonal_degree=seasonal_degree,
+            trend_degree=trend_degree,
+            low_pass_degree=low_pass_degree,
+            seasonal_smoothing=seasonal_window,
+            trend_smoothing=trend_window,
+            low_pass_smoothing=low_pass_window,
+            n_iterations=inner_iterations,
+        )
 
-        #Perform the outer loop and get the remainder and robustness weights
+        # Perform the outer loop and get the remainder and robustness weights
         weights, remainder = __outer_loop(y=data, trend=trend, seasonal=seasonal)
 
-        #If not robust, keep robustness weights as 1.
+        # If not robust, keep robustness weights as 1.
         if not robust:
             weights = np.ones(len(data))
-    
-    #If post smoothing, perform one last LOESS on the components
+
+    # If post smoothing, perform one last LOESS on the components
     if post_smoothing:
-        
         seasonal = LOESS(data=seasonal, window_size=seasonal_window, degree=seasonal_degree)
         trend = data - seasonal
         trend = LOESS(data=trend, window_size=trend_window, degree=trend_degree)
         remainder = data - seasonal - trend
-    
-    #Take the exponents to get actual values for multiplicative decomposition
+
+    # Take the exponents to get actual values for multiplicative decomposition
     if method == "mul":
         trend = np.exp(trend)
         seasonal = np.exp(seasonal)
         remainder = np.exp(remainder)
 
-    #Plot the results:
+    # Plot the results:
     if show:
         plot_decomp(trend, seasonal, remainder, method=method)
 
-    return DataLoader(trend).to_numpy(), DataLoader(seasonal).to_numpy(), DataLoader(remainder).to_numpy()
-    
+    return (
+        DataLoader(trend).to_numpy(),
+        DataLoader(seasonal).to_numpy(),
+        DataLoader(remainder).to_numpy(),
+    )
