@@ -1,0 +1,14 @@
+[flake8]
+max-line-length = 100
+extend-ignore = 
+    # E203: Whitespace before ':'
+    E203,
+    # W503: Line break before binary operator
+    W503,
+    # W504: Line break after binary operator
+    W504 
+    # F401: '...' imported but unused
+    F401
+
+include =
+    chronokit
