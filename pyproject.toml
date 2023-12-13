@@ -1,16 +1,23 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "chrono-kit"
 version = "1.0.5"
-authors = [
-  { name="ODTU YZT", email="odtuyzt@gmail.com" },
-]
 description = "An open source python library for time series analysis and forecasting."
+authors = ["ODTU YZT <odtuyzt@gmail.com>"]
 readme = "README.md"
-requires-python = ">=3.8"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+numpy = "^1.22.0"
+pandas = "^1.4.0"
+scipy = "^1.4.1"
+matplotlib = "^3.2.1"
+torch = "^1.13.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
