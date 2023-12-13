@@ -1,0 +1,37 @@
+name: Lint
+
+on:
+  # Trigger the workflow on push or pull request,
+  # but only for the main and v1.1.x branchs
+  push:
+    branches:
+      - main
+      - v1.1.x
+  pull_request:
+    branches:
+      - main
+      - v1.1.x
+
+jobs:
+  run-linters:
+    name: Run linters
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black
+
+      - name: Run Black
+        run: python -m black --line-length=100 --target-version=py38 --verbose chronokit
+      - name: Run Flake8
+        run: python -m flake8 --max-line-length=100 --ignore=F401,E203,W503,W504 --verbose chronokit
