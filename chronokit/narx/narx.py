@@ -12,7 +12,8 @@ class NARXModel(torch.nn.Module):
         super(NARXModel, self).__init__()
         self.Wx = nn.Linear(n_features, hidden_size, bias=False)
         self.Wy = nn.Linear(1, hidden_size)
-        self.batch_norm = nn.BatchNorm1d(hidden_size, momentum=batch_norm_momentum)
+        if batch_norm_momentum > 0.0:
+            self.batch_norm = nn.BatchNorm1d(hidden_size, momentum=batch_norm_momentum)
         self.dropout = nn.Dropout(dropout)
         self.output_layer = nn.Linear(hidden_size, 1)
         self.tanh = nn.Tanh()
@@ -32,7 +33,8 @@ class NARXModel(torch.nn.Module):
         x_out = self.Wx(x)
         y_out = self.Wy(y)
         output = self.tanh(x_out + y_out)
-        output = self.batch_norm(output)
+        if hasattr(self, 'batch_norm'):
+            output = self.batch_norm(output)
         output = self.dropout(output)
         output = self.output_layer(output)
         return output

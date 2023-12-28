@@ -126,14 +126,14 @@ class TestNARX(unittest.TestCase):
 
     def test_fit(self):
         # Testing fit method
-        self.model1.fit(epochs=20, lr=0.001)
-        self.model2.fit(epochs=20, lr=0.001)
-        self.model3.fit(epochs=20, lr=0.001)
+        self.model1.fit(epochs=20)
+        self.model2.fit(epochs=20)
+        self.model3.fit(epochs=20)
         # Model4 should fail because of dimension mismatch
-        self.assertRaises(RuntimeError, self.model4.fit, epochs=20, lr=0.001)
-        self.model5.fit(epochs=20, lr=0.001)
-        self.model6.fit(epochs=20, lr=0.001)
-        self.model7.fit(epochs=20, lr=0.001)
+        self.assertRaises(RuntimeError, self.model4.fit, epochs=20)
+        self.model5.fit(epochs=20)
+        self.model6.fit(epochs=20)
+        self.model7.fit(epochs=20)
 
         # Testing prediction
         y_pred1 = self.model1.predict(self.x1[-1], self.y1[-1])
