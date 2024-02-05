@@ -20,9 +20,10 @@ class DataLoader:
 
         self.data_type = type(data)
 
-        assert (
-            self.data_type in self.accepted_types
-        ), f"{type(data).__name__} is not an accepted data type"
+        if "float" not in self.data_type.__name__:
+            assert (
+                self.data_type in self.accepted_types
+            ), f"{type(data).__name__} is not an accepted data type"
 
         if self.data_type == pd.DataFrame:
             self.original_df = data
@@ -75,7 +76,7 @@ class DataLoader:
     def to_tensor(self):
         """Turn self.data into tensors"""
 
-        if isinstance(self.data, torch.tensor):
+        if isinstance(self.data, torch.Tensor):
             return torch._cast_Float(self.data.detach().clone())
 
         else:
@@ -89,3 +90,40 @@ class DataLoader:
 
         else:
             return np.array(self.data, dtype=np.float32).copy()
+    
+    def match_dims(self, dims, return_type="numpy"):
+        """Match the number of dimensions of self.data to specified dims"""
+
+        assert(dims > 0), "dims must be greater than 0"
+
+        data = self.to_numpy()
+
+        if len(data.shape) == dims:
+            if return_type == "numpy":
+                return self.to_numpy()
+            else:
+                return self.to_tensor()
+
+        one_axes = np.where(np.array(data.shape) == 1)[0]
+        assert (one_axes == data.ndim - 1), ".match_dims cannot be called on a data with multiple dimensions with shape != 1"
+
+        if data.ndim == dims:
+            if return_type == "numpy":
+                return data
+            else:
+                return self.to_tensor()
+        
+        elif data.ndim < dims:
+            data = np.expand_dims(data, axis=(-x-1 for x in range(dims-data.ndim)))
+        
+        elif data.ndim > dims:
+            data = np.squeeze(data, axis=[x for x in one_axes[-dims:]])
+        
+        if return_type == "numpy":
+            return data
+        else:
+            return torch.tensor(data, dtype=torch.float32).detach().clone()
+            
+
+
+
