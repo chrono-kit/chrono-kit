@@ -115,8 +115,7 @@ def plot_train_test_split(
     *figsize (Optional[tuple]): Size of the plot
     *title (Optional[str]): Title of the plot
     *colors (Optional[iterable]): Colors of the lines/points on the plot
-    *style (Optional[str]): Style of the plot
-        'https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html'
+    *style (Optional[str]): Style of the plot 'https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html'
     """
 
     assert isinstance(title, str) or title is None, "Plot title must be a string"
@@ -152,17 +151,17 @@ def plot_train_test_split(
         plt.figure(figsize=figsize)
         plt.plot(range(len(train)), train, label="Train", color=use_colors["train"])
         plt.plot(
-            range(len(train), len(train) + len(val_data)),
-            val,
+            range(len(train)-1, len(train) + len(val_data)),
+            np.concatenate(([train[-1]], val), axis=0),
             label="Validation",
             color=use_colors["val"],
         )
         plt.plot(
             range(
-                len(train + val_data),
+                len(train + val_data)-1,
                 len(train) + len(val_data) + len(test_data),
             ),
-            test,
+            np.concatenate(([val[-1]], test), axis=0),
             label="Test",
             color=use_colors["test"],
         )
@@ -174,8 +173,8 @@ def plot_train_test_split(
         plt.figure(figsize=figsize)
         plt.plot(range(len(train)), train, label="Train", color=use_colors["train"])
         plt.plot(
-            range(len(train), len(train) + len(test)),
-            test,
+            range(len(train)-1, len(train) + len(test)),
+            np.concatenate(([train[-1]], test), axis=0),
             label="Test",
             color=use_colors["test"],
         )
@@ -212,7 +211,7 @@ def plot_autocorrelation(acf, figsize=(12, 8), title: str = None, colors=None, s
 
     yticks = np.arange(-1, 1.25, 0.25)
     length = len(acf)
-    xticks = np.arange(0, length, int(length / 15))
+    xticks = np.arange(0, length, max(1, int(length / 15)))
 
     plt.figure(figsize=figsize)
     plt.scatter(np.arange(length), acf, s=48, color=use_colors["dots"], zorder=5)
