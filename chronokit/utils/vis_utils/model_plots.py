@@ -1,3 +1,4 @@
+import numpy as np
 import matplotlib
 import matplotlib.style
 import matplotlib.pyplot as plt
@@ -37,8 +38,16 @@ def plot_predictions(
     *metrics (Optional[iterable]): Evaluation metrics to use for the
         predictions to report on the plot
     """
-    y_true = DataLoader(y_true).to_numpy()
-    y_pred = DataLoader(y_pred).to_numpy()
+
+    try:
+        y_true = DataLoader(y_true).to_numpy()
+    except:
+        raise ValueError("Expecting y_true as an array_like")
+    
+    try:
+        y_pred = DataLoader(y_pred).to_numpy()
+    except:
+        raise ValueError("Expecting y_pred as an array_like")
 
     use_colors = {
         "y_true": "blue",
@@ -66,6 +75,12 @@ def plot_predictions(
 
     error_bounds = None
 
+    if pre_vals is not None:
+        try:
+            pre_vals = DataLoader(pre_vals).to_numpy()
+        except:
+            raise ValueError("Expecting pre_vals argument as an array_like")
+        
     if bounds:
         try:
             iter(bounds)
@@ -83,19 +98,26 @@ def plot_predictions(
             for val in list(bounds.values()):
                 assert len(val) == len(y_pred), "Length of bounds must match length of predictions"
 
+            
             error_bounds = {
-                "upper": DataLoader(bounds["upper"]).to_numpy(),
-                "lower": DataLoader(bounds["lower"]).to_numpy(),
-            }
+                    "upper": DataLoader(bounds["upper"]).to_numpy(),
+                    "lower": DataLoader(bounds["lower"]).to_numpy(),
+                }
 
         else:
             for val in bounds:
                 assert len(val) == len(y_pred), "Length of bounds must match length of predictions"
 
+            
             error_bounds = {
-                "upper": DataLoader(bounds[0]).to_numpy(),
-                "lower": DataLoader(bounds[1]).to_numpy(),
-            }
+                    "upper": DataLoader(bounds[0]).to_numpy(),
+                    "lower": DataLoader(bounds[1]).to_numpy()
+                }
+        
+        if pre_vals is not None:
+
+            error_bounds["upper"] = np.concatenate((pre_vals[-1].reshape(tuple([1 for x in error_bounds["upper"].shape])), error_bounds["upper"]), axis=0)
+            error_bounds["lower"] = np.concatenate((pre_vals[-1].reshape(tuple([1 for x in error_bounds["lower"].shape])), error_bounds["lower"]), axis=0)
 
     plt_metrics = None
     if metrics:
@@ -131,8 +153,10 @@ def plot_predictions(
     plt.figure(figsize=figsize)
     if pre_vals is not None:
         pre_vals = DataLoader(pre_vals).to_numpy()
-        main_plt_range = range(len(pre_vals), len(pre_vals) + len(y_pred))
+        main_plt_range = range(len(pre_vals)-1, len(pre_vals) + len(y_pred))
         plt.plot(range(len(pre_vals)), pre_vals, color=use_colors["pre_vals"])
+        y_true = np.concatenate((pre_vals[-1].reshape(tuple([1 for x in y_true.shape])), y_true), axis=0)
+        y_pred = np.concatenate((pre_vals[-1].reshape(tuple([1 for x in y_pred.shape])), y_pred), axis=0)
     else:
         main_plt_range = range(len(y_pred))
     plt.plot(main_plt_range, y_true, color=use_colors["y_true"], label="Y True")
