@@ -40,12 +40,12 @@ def plot_predictions(
 
     try:
         y_true = DataLoader(y_true).to_numpy()
-    except:
+    except:  # noqa: E722
         raise ValueError("Expecting y_true as an array_like")
     
     try:
         y_pred = DataLoader(y_pred).to_numpy()
-    except:
+    except:  # noqa: E722
         raise ValueError("Expecting y_pred as an array_like")
 
     use_colors = {
@@ -77,7 +77,7 @@ def plot_predictions(
     if pre_vals is not None:
         try:
             pre_vals = DataLoader(pre_vals).to_numpy()
-        except:
+        except:  # noqa: E722
             raise ValueError("Expecting pre_vals argument as an array_like")
         
     if bounds:

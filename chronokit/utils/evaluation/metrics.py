@@ -111,7 +111,7 @@ def AIC(log_likelihood, num_parameters):
     ll = DataLoader(log_likelihood).to_tensor()
     num_parameters = DataLoader(num_parameters).to_tensor()
 
-    return IC(log_likelihood, num_parameters, penalty_factor=2)
+    return IC(ll, num_parameters, penalty_factor=2)
 
 
 def AIC_corrected(log_likelihood, num_parameters, num_observations):
@@ -121,7 +121,7 @@ def AIC_corrected(log_likelihood, num_parameters, num_observations):
 
     penalty_factor = (2*nobs)/(nobs - num_parameters - 1)
 
-    return IC(log_likelihood, num_parameters, penalty_factor)
+    return IC(ll, num_parameters, penalty_factor)
 
 
 def BIC(log_likelihood, num_parameters, num_observations):

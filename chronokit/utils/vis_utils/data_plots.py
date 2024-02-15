@@ -113,11 +113,13 @@ def plot_train_test_split(
 
     *train_data (array_like): Training data of the split
     *test_data (array_like): Test data of the split
-    *val_data (Optional[array_like]): Val data of the split if data is splitted as train/val/test
+    *val_data (Optional[array_like]): Val data of the split 
+        if data is splitted as train/val/test
     *figsize (Optional[tuple]): Size of the plot
     *title (Optional[str]): Title of the plot
     *colors (Optional[iterable]): Colors of the lines/points on the plot
-    *style (Optional[str]): Style of the plot 'https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html'
+    *style (Optional[str]): Style of the plot 
+        'https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html'
     """
 
     assert isinstance(title, str) or title is None, "Plot title must be a string"

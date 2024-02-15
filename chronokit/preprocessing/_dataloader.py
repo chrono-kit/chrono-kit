@@ -20,7 +20,7 @@ class DataLoader:
 
         self.data_type = type(data)
 
-        if self.data_type not in self.accepted_types:
+        if self.data_type not in self.accepted_types: # noqa: E713
             if not self.is_valid_numeric(data):
                 raise TypeError(f"{self.data_type.__name__} is not an accepted data type")
         

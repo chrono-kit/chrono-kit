@@ -96,7 +96,7 @@ class ModelSelection:
                 isinstance(seasonal_periods, int) and seasonal_periods >= 2
             ), "Provide seasonal_periods as an integer >= 2"
 
-        assert(type(args) == dict), "Provide smoothing_args as a dictionary"
+        assert(isinstance(args, dict)), "Provide smoothing_args as a dictionary"
 
         models = []
 
@@ -134,8 +134,7 @@ class ModelSelection:
                 for s in seasonal_args
         ]
 
-        for ind, arg in enumerate(selection_args):
-            print(f"[{ind}/{len(selection_args)}]")
+        for arg in selection_args:
             e,t,s,d,s_per = arg
 
             if e is None:
@@ -154,7 +153,7 @@ class ModelSelection:
                 isinstance(seasonal_periods, int) and seasonal_periods >= 2
             ), "Provide seasonal_periods as an integer >= 2"
         
-        assert(type(args) == dict), "Provide smoothing_args as a dictionary"
+        assert(isinstance(args, dict)), "Provide smoothing_args as a dictionary"
 
         for k,v in args.items():
             assert (
@@ -209,8 +208,7 @@ class ModelSelection:
             ]
         ]                
             
-        for ind, orders in enumerate(selection_args):
-            print(f"[{ind}/{len(selection_args)}]")
+        for orders in selection_args:
             order, seasonal_order = orders
 
             models.append(SARIMA(data=data, order=order, seasonal_order=seasonal_order,
