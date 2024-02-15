@@ -103,7 +103,8 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
         
         """
         See book chapter 6
-        Approximate intervals for model class 3 has not been implemented yet, so we use simulation
+        Approximate intervals for model class 3 
+        has not been implemented yet, so we use simulation.
         Algebraic methods for classes 1,2 are provided here
         """
 
@@ -204,7 +205,8 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
                 self.info["seasonal_periods"] = str(self.seasonal_periods)
 
         else:
-            #This is a placeholder for possible future implementations of generalized state space models
+            #This is a placeholder for possible future implementations 
+            #of generalized state space models
             model_class = "NONE"
         
         self.info["num_params"] = 1 + sum([bool(self.trend), bool(self.seasonal), self.damped])
@@ -256,7 +258,9 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
         """This function checks if the keyword arguments are valid."""
         for k, v in kwargs.items():
             if k not in self.allowed_kwargs:
-                raise ValueError("{key} is not a valid keyword for this model".format(key=k))
+                raise ValueError(
+                    "{key} is not a valid keyword for this model".format(key=k)
+                )
         
         valid_kwargs = {}
 
@@ -265,7 +269,7 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
                 #If an exception occurs, it means kwarg is not valid
                 #Hence do not set the passed value
                 kwarg_data_loader = DataLoader(v)
-            except Exception as e:
+            except:  # noqa: E722
                 continue
             
             valid = True
@@ -282,7 +286,7 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
                     for x in iter(seasonal_factors):
                         if not kwarg_data_loader.is_valid_numeric(x):
                             valid = False
-                except Exception as e:
+                except:  # noqa: E722
                     valid = False
             
             else:

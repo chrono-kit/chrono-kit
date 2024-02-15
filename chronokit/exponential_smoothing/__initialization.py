@@ -30,10 +30,12 @@ class SmoothingInitializer(Initializer):
         #Can encounter data length related issues
         try:
             init_level, init_trend, init_seasonal = self.__heuristic_initialization()
-        except Exception as e:
-            init_level = 0.
-            init_trend = 0.
+        except:  # noqa: E722
+            init_level = self.model.data[0]
+            init_trend = 1. if self.model.trend == "mul" else 0.
             init_seasonal = [0.]
+            if self.model.seasonal is not None:
+                init_seasonal = [1. if self.model.seasonal == "mul" else 0. for x in range(self.model.seasonal_periods)]
         
         self.init_components = {"level": init_level, 
                                 "trend_factor": init_trend,
@@ -107,7 +109,7 @@ class SmoothingInitializer(Initializer):
                     init_components.append(s)
 
             result_params = init_components + list(estimated_params)
-        except Exception as e:
+        except:  # noqa: E722
             return None, False
     
         return result_params, results.success
@@ -155,7 +157,7 @@ class SmoothingInitializer(Initializer):
                 init_values,
                 bounds=param_bounds
             )
-        except Exception as e:
+        except:  # noqa: E722
             return None, False
 
 

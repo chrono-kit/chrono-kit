@@ -28,7 +28,7 @@ class _B_Op_:
                 iter(other)
                 return self.weight*other[-1 - self.order]
 
-            except Exception as e:
+            except:  # noqa: E722
                 return _B_Op_(weight=self.weight*other,
                             order=self.order)
         else:
@@ -162,7 +162,9 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
         """This function checks if the keyword arguments are valid."""
         for k, v in kwargs.items():
             if k not in self.allowed_kwargs:
-                raise ValueError("{key} is not a valid keyword for this model".format(key=k))
+                raise ValueError(
+                    "{key} is not a valid keyword for this model".format(key=k)
+                )
         
         valid_kwargs = {}
 
@@ -171,7 +173,7 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
                 #If an exception occurs, it means kwarg is not valid
                 #Hence do not set the passed value
                 kwarg_data_loader = DataLoader(v)
-            except Exception as e:
+            except:  # noqa: E722
                 continue
             
             #TODO: There are some conditions on parameter values for some cases
@@ -230,7 +232,7 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
             if isinstance(attr_val, int) or attr_val < 0:
                 try:
                     val = max(0, int(attr_val))
-                except Exception as e:
+                except:  # noqa: E722
                     val = 0
             
                 setattr(self, order, val)
@@ -260,7 +262,8 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
                 #ensure seasonal periods is built_in integer
                 setattr(self, "seasonal_periods", int(self.seasonal_periods))
 
-            assert (len(self.data) > self.seasonal_periods*2), "Length of data must be > 2*seasonal_periods"
+            assert (len(self.data) > self.seasonal_periods*2),"Length\
+                of data must be > 2*seasonal_periods"
         else:
             setattr(self, "P", 0)
             setattr(self, "D", 0)
@@ -271,8 +274,9 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
 
         if len(self.data) < lookback:
             raise ValueError(
-                f"Model with order {self.order, self.seasonal_order} needs at least {lookback} observations\n\
-                  Current amount of observations: {len(self.data)}"
+                f"Model with order {self.order, self.seasonal_order}\
+                    needs at least {lookback} observations\n\
+                    Current amount of observations: {len(self.data)}"
             ) 
         
         #TODO: Implement ADF test and recommended differencing if not stationary
