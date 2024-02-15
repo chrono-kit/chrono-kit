@@ -2,8 +2,8 @@ import matplotlib
 import matplotlib.style
 import matplotlib.pyplot as plt
 from chronokit.preprocessing._dataloader import DataLoader
+from chronokit.preprocessing.autocorrelations import AutoCorrelation
 import numpy as np
-
 
 def plot_decomp(
     trend,
@@ -37,6 +37,8 @@ def plot_decomp(
     if style:
         assert isinstance(style, str), "Provide style as a string"
         matplotlib.style.use(style)
+    else:
+        matplotlib.style.use("ggplot")
 
     use_colors = {"trend": "blue", "seasonal": "blue", "remainder": "blue"}
 
@@ -123,6 +125,8 @@ def plot_train_test_split(
     if style:
         assert isinstance(style, str), "Provide style as a string"
         matplotlib.style.use(style)
+    else:
+        matplotlib.style.use("ggplot")
 
     use_colors = {"train": "blue", "val": "orange", "test": "red"}
 
@@ -226,3 +230,18 @@ def plot_autocorrelation(acf, figsize=(12, 8), title: str = None, colors=None, s
         plt.title(title)
 
     plt.show()
+
+def acf_plot(data, lags):
+    acorr = AutoCorrelation(data)
+
+    acf = acorr.acf(lags)
+
+    plot_autocorrelation(acf)
+
+
+def pacf_plot(data, lags):
+    acorr = AutoCorrelation(data)
+
+    pacf = acorr.pacf(lags)
+
+    plot_autocorrelation(pacf)

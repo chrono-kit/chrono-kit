@@ -20,10 +20,11 @@ class DataLoader:
 
         self.data_type = type(data)
 
-        if "float" not in self.data_type.__name__:
-            assert (
-                self.data_type in self.accepted_types
-            ), f"{type(data).__name__} is not an accepted data type"
+        if self.data_type not in self.accepted_types:
+            if not self.is_valid_numeric(data):
+                raise TypeError(f"{self.data_type.__name__} is not an accepted data type")
+        
+        #TO-DO: Check for nan,inf etc.. values in given array_like data
 
         if self.data_type == pd.DataFrame:
             self.original_df = data
@@ -36,7 +37,26 @@ class DataLoader:
 
         else:
             self.data = data
-
+    
+    def is_valid_numeric(self, value):
+        if value is None:
+            return False
+        
+        #check valid numeric numpy number
+        if isinstance(value, np.number) and not (np.isinf(value) or np.isnan(value)):
+            return True
+        
+        #Check valid numeric tensor
+        if torch.is_tensor(value):
+            if value.ndim == 0 and not (torch.isinf(value) or torch.isnan(value)):
+                return True
+        
+        #check if valid built-in numeric
+        if isinstance(value, (int, float)) and not value in (float('inf'), float('-inf'), float('nan')):
+            return True
+            
+        return False
+    
     def __organize_df(self, df: pd.DataFrame):
         """Method for organizing a possibly unorganized dataframe while also making sure
         all entries are convertible to tensors and keeping track of the operations done
@@ -104,9 +124,6 @@ class DataLoader:
             else:
                 return self.to_tensor()
 
-        one_axes = np.where(np.array(data.shape) == 1)[0]
-        assert (one_axes == data.ndim - 1), ".match_dims cannot be called on a data with multiple dimensions with shape != 1"
-
         if data.ndim == dims:
             if return_type == "numpy":
                 return data
@@ -114,10 +131,13 @@ class DataLoader:
                 return self.to_tensor()
         
         elif data.ndim < dims:
-            data = np.expand_dims(data, axis=(-x-1 for x in range(dims-data.ndim)))
+            data = np.expand_dims(data, axis=tuple([-x-1 for x in range(dims-data.ndim)]))
         
         elif data.ndim > dims:
-            data = np.squeeze(data, axis=[x for x in one_axes[-dims:]])
+            one_axes = np.where(np.array(data.shape) == 1)[0]
+            assert (one_axes == data.ndim - 1), ".match_dims cannot be called on a data with multiple dimensions with shape != 1"
+
+            data = np.squeeze(data, axis=tuple([x for x in one_axes[-dims:]]))
         
         if return_type == "numpy":
             return data
