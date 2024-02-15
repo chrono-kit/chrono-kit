@@ -2,8 +2,8 @@ import matplotlib
 import matplotlib.style
 import matplotlib.pyplot as plt
 from chronokit.preprocessing._dataloader import DataLoader
+from chronokit.preprocessing.autocorrelations import AutoCorrelation
 import numpy as np
-
 
 def plot_decomp(
     trend,
@@ -37,6 +37,8 @@ def plot_decomp(
     if style:
         assert isinstance(style, str), "Provide style as a string"
         matplotlib.style.use(style)
+    else:
+        matplotlib.style.use("ggplot")
 
     use_colors = {"trend": "blue", "seasonal": "blue", "remainder": "blue"}
 
@@ -111,11 +113,12 @@ def plot_train_test_split(
 
     *train_data (array_like): Training data of the split
     *test_data (array_like): Test data of the split
-    *val_data (Optional[array_like]): Val data of the split if data is splitted as train/val/test
+    *val_data (Optional[array_like]): Val data of the split 
+        if data is splitted as train/val/test
     *figsize (Optional[tuple]): Size of the plot
     *title (Optional[str]): Title of the plot
     *colors (Optional[iterable]): Colors of the lines/points on the plot
-    *style (Optional[str]): Style of the plot
+    *style (Optional[str]): Style of the plot 
         'https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html'
     """
 
@@ -124,6 +127,8 @@ def plot_train_test_split(
     if style:
         assert isinstance(style, str), "Provide style as a string"
         matplotlib.style.use(style)
+    else:
+        matplotlib.style.use("ggplot")
 
     use_colors = {"train": "blue", "val": "orange", "test": "red"}
 
@@ -152,17 +157,17 @@ def plot_train_test_split(
         plt.figure(figsize=figsize)
         plt.plot(range(len(train)), train, label="Train", color=use_colors["train"])
         plt.plot(
-            range(len(train), len(train) + len(val_data)),
-            val,
+            range(len(train)-1, len(train) + len(val_data)),
+            np.concatenate(([train[-1]], val), axis=0),
             label="Validation",
             color=use_colors["val"],
         )
         plt.plot(
             range(
-                len(train + val_data),
+                len(train + val_data)-1,
                 len(train) + len(val_data) + len(test_data),
             ),
-            test,
+            np.concatenate(([val[-1]], test), axis=0),
             label="Test",
             color=use_colors["test"],
         )
@@ -174,8 +179,8 @@ def plot_train_test_split(
         plt.figure(figsize=figsize)
         plt.plot(range(len(train)), train, label="Train", color=use_colors["train"])
         plt.plot(
-            range(len(train), len(train) + len(test)),
-            test,
+            range(len(train)-1, len(train) + len(test)),
+            np.concatenate(([train[-1]], test), axis=0),
             label="Test",
             color=use_colors["test"],
         )
@@ -212,7 +217,7 @@ def plot_autocorrelation(acf, figsize=(12, 8), title: str = None, colors=None, s
 
     yticks = np.arange(-1, 1.25, 0.25)
     length = len(acf)
-    xticks = np.arange(0, length, int(length / 15))
+    xticks = np.arange(0, length, max(1, int(length / 15)))
 
     plt.figure(figsize=figsize)
     plt.scatter(np.arange(length), acf, s=48, color=use_colors["dots"], zorder=5)
@@ -227,3 +232,18 @@ def plot_autocorrelation(acf, figsize=(12, 8), title: str = None, colors=None, s
         plt.title(title)
 
     plt.show()
+
+def acf_plot(data, lags):
+    acorr = AutoCorrelation(data)
+
+    acf = acorr.acf(lags)
+
+    plot_autocorrelation(acf)
+
+
+def pacf_plot(data, lags):
+    acorr = AutoCorrelation(data)
+
+    pacf = acorr.pacf(lags)
+
+    plot_autocorrelation(pacf)

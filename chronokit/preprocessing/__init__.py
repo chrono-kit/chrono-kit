@@ -4,4 +4,4 @@ from .data_transforms import (
     MinMaxScaling,
     differencing,
 )
-from ._model_selection import model_selection
+from .autocorrelations import AutoCorrelation

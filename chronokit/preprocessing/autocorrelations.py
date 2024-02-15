@@ -1,7 +1,5 @@
 from chronokit.preprocessing._dataloader import DataLoader
-from chronokit.utils.vis_utils import plot_autocorrelation
 import numpy as np
-
 
 class AutoCorrelation:
     def __init__(self, data):
@@ -121,19 +119,3 @@ class AutoCorrelation:
             pacfs = np.append(pacfs, self.__phi(i)[i - 1])
 
         return pacfs
-
-
-def acf_plot(data, lags):
-    acorr = AutoCorrelation(data)
-
-    acf = acorr.acf(lags)
-
-    plot_autocorrelation(acf)
-
-
-def pacf_plot(data, lags):
-    acorr = AutoCorrelation(data)
-
-    pacf = acorr.pacf(lags)
-
-    plot_autocorrelation(pacf)

@@ -13,12 +13,8 @@ def differencing(data, order=1, return_numpy=True):
 
     *data (array_like): Data to perform differencing on.
     *order Optional[int]: Order of differencing
-    *return_numpy Optional[bool]: Whether to return a numpy array. Will return numpy.ndarray if give
-
-
-
-
-    n, torch.Tensor otherwise.
+    *return_numpy Optional[bool]: Whether to return a numpy array. Will return numpy.ndarray 
+    if given, torch.Tensor otherwise.
 
     Returns:
 

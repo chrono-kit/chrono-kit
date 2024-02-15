@@ -10,7 +10,7 @@ np.random.seed(7)
 random.seed(7)
 
 df = pd.read_csv(
-    "/home/hasan/Desktop/Codes/yzt_main/datasets/AirPassengers.csv",
+    "/home/hasanemirakin/Desktop/Codes/yzt_tsa/datasets/AirPassengers.csv",
     index_col=0,
 )
 
