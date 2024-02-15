@@ -62,7 +62,6 @@ class ModelSelection:
         assert model_type in ["smoothing", "arima", "all"], "Model_type not accepted"
 
         tr_data = self.data[:-self.split_length]
-        val_data = self.data[-self.split_length:]
 
         if model_type == "smoothing":
             

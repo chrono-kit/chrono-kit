@@ -164,7 +164,8 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
                 return (1+error_var)*var_multipliers - torch.square(forecasts.clone())
         
         #TODO: implement class 3,
-        #Until implementation, the above if statement should yield True for all times when this function is called
+        #Until implementation, the above if statement should yield 
+        #True for all times when this function is called
         else:
             return None
 

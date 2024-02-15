@@ -20,11 +20,11 @@ class DataLoader:
 
         self.data_type = type(data)
 
-        if self.data_type not in self.accepted_types: # noqa: E713
+        if self.data_type not in self.accepted_types:
             if not self.is_valid_numeric(data):
                 raise TypeError(f"{self.data_type.__name__} is not an accepted data type")
         
-        #TO-DO: Check for nan,inf etc.. values in given array_like data
+        #TODO: Check for nan,inf etc.. values in given array_like data
 
         if self.data_type == pd.DataFrame:
             self.original_df = data
@@ -52,7 +52,7 @@ class DataLoader:
                 return True
         
         #check if valid built-in numeric
-        if isinstance(value, (int, float)) and not value in (float('inf'), float('-inf'), float('nan')):
+        if isinstance(value, (int, float)) and value not in (float('inf'), float('-inf'), float('nan')):
             return True
             
         return False
