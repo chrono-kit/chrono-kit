@@ -18,11 +18,11 @@ class TraditionalTimeSeriesModel:
         #Assert Valid Data
         try:
             self.data = self.data_loader.match_dims(1, return_type="torch")
-        except:
+        except Exception as e:
             raise NotImplementedError(
-                """Multivariate models are not implemented as of v1.1.0,
-                please make sure data.ndim <= 1 or squeezable"""
-                )
+                "Multivariate models are not implemented as of v1.1.0,\
+                please make sure data.ndim <= 1 or squeezable"
+            )
 
         self.info = {}
 

@@ -30,7 +30,7 @@ class SmoothingInitializer(Initializer):
         #Can encounter data length related issues
         try:
             init_level, init_trend, init_seasonal = self.__heuristic_initialization()
-        except AssertionError as a:
+        except Exception as e:
             init_level = 0.
             init_trend = 0.
             init_seasonal = [0.]
@@ -107,7 +107,7 @@ class SmoothingInitializer(Initializer):
                     init_components.append(s)
 
             result_params = init_components + list(estimated_params)
-        except:
+        except Exception as e:
             return None, False
     
         return result_params, results.success
@@ -155,7 +155,7 @@ class SmoothingInitializer(Initializer):
                 init_values,
                 bounds=param_bounds
             )
-        except:
+        except Exception as e:
             return None, False
 
 

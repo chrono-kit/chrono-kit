@@ -23,7 +23,7 @@ class _B_Op_:
 
     def __mul__(self, other):
 
-        if type(other) != type(self):
+        if isinstance(other, type(self)):
             try:
                 iter(other)
                 return self.weight*other[-1 - self.order]
@@ -121,8 +121,10 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
 
         else:
             if not set(self.allowed_kwargs).issubset(kwargs.keys()):
-                raise Exception(f"All values component should be passes when initialization_method='known'\n\
-                                    {self.allowed_kwargs}")
+                raise Exception(
+                    f"All values component should be passes when \
+                    initialization_method='known'\n {self.allowed_kwargs}"
+                )
         
         self.set_kwargs(kwargs)
             
@@ -169,7 +171,7 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
                 #If an exception occurs, it means kwarg is not valid
                 #Hence do not set the passed value
                 kwarg_data_loader = DataLoader(v)
-            except:
+            except Exception as e:
                 continue
             
             #TODO: There are some conditions on parameter values for some cases
@@ -228,7 +230,7 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
             if isinstance(attr_val, int) or attr_val < 0:
                 try:
                     val = max(0, int(attr_val))
-                except:
+                except Exception as e:
                     val = 0
             
                 setattr(self, order, val)

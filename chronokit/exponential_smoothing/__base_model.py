@@ -28,7 +28,8 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
 
         if self.seasonal is not None:
             # Data must have at least 2 full seasonal cycles
-            assert len(data) > 2 * self.seasonal_periods, "Length of data must be > 2*seasonal_periods for a seasonal model"
+            assert (len(data) > 2 * self.seasonal_periods), "Length of data\
+                must be > 2*seasonal_periods for a seasonal model"
 
         if initialization_method != "known":
             initializer = SmoothingInitializer(self, method=initialization_method)
@@ -48,8 +49,10 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
 
         else:
             if not set(self.allowed_kwargs).issubset(kwargs.keys()):
-                raise Exception(f"All values component should be passes when initialization_method='known'\n\
-                                    {self.allowed_kwargs}")
+                raise Exception(
+                    f"All values component should be passes when \
+                    initialization_method='known'\n {self.allowed_kwargs}"
+                )
                 
 
         self.set_kwargs(kwargs)
@@ -262,7 +265,7 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
                 #If an exception occurs, it means kwarg is not valid
                 #Hence do not set the passed value
                 kwarg_data_loader = DataLoader(v)
-            except:
+            except Exception as e:
                 continue
             
             valid = True
@@ -279,7 +282,7 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
                     for x in iter(seasonal_factors):
                         if not kwarg_data_loader.is_valid_numeric(x):
                             valid = False
-                except:
+                except Exception as e:
                     valid = False
             
             else:
