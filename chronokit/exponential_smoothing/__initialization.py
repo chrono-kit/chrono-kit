@@ -2,28 +2,45 @@ import numpy as np
 import pandas as pd
 import torch
 import scipy.optimize as opt
-import matplotlib.pyplot as plt
+import warnings
 from scipy.stats import norm
 from scipy.stats import linregress
+from scipy.linalg import toeplitz
 from chronokit.preprocessing._dataloader import DataLoader
+from chronokit.preprocessing.data_transforms import differencing
 from chronokit.base._initializers import Initializer
 
 class SmoothingInitializer(Initializer):
 
     def __init__(self, model, method="mle"):
 
+        if method not in ["heuristic", "mle", "simple"]:
+            warnings.warn(
+                    f"{method} is not a valid method as of v1.1.x/n\
+                      Will use heuristic initalization.",
+                    stacklevel=2,
+                )
+            method = "heuristic"
+        
         super().__init__(model, method)
 
         self.used_params = {"components": ["level"],
-                            "params": ["alpha"]}
-
-        init_alpha = 0.1 if model.seasonal is None else 0.5/model.seasonal_periods
-        self.init_params = {"alpha": init_alpha} 
-
-        init_level, init_trend, init_seasonal = self.__heuristic_initialization()
+                            "params": ["alpha"]}        
+        
+        #Can encounter data length related issues
+        try:
+            init_level, init_trend, init_seasonal = self.__heuristic_initialization()
+        except AssertionError as a:
+            init_level = 0.
+            init_trend = 0.
+            init_seasonal = [0.]
+        
         self.init_components = {"level": init_level, 
                                 "trend_factor": init_trend,
                                 "seasonal_factors": init_seasonal}
+
+        init_alpha = 0.1 if model.seasonal is None else 0.5/model.seasonal_periods
+        self.init_params = {"alpha": init_alpha} 
 
         if method != "heuristic":
             self.err_func = {"mle": self._log_likelihood_err,
@@ -35,8 +52,15 @@ class SmoothingInitializer(Initializer):
             self.used_params["components"].append("trend_factor")
             self.used_params["params"].append("beta")
             self.init_params["beta"] = 0.01
+
+            if self.model.damped:
+                self.used_params["params"].append("phi")
+                self.init_params["phi"] = 0.99
+            else:
+                self.init_params["phi"] = 1.
         else:
             self.init_params["beta"] = 0.
+            self.init_params["phi"] = 1.
         
         if self.model.seasonal is not None:
             self.used_params["components"].append("seasonal_factors")
@@ -45,11 +69,7 @@ class SmoothingInitializer(Initializer):
         else:
             self.init_params["gamma"] = 0.
         
-        if self.model.damped:
-            self.used_params["params"].append("phi")
-            self.init_params["phi"] = 0.99
-        else:
-            self.init_params["phi"] = 1.
+       
 
         for component, value in self.init_components.items():
                 setattr(self.model, component, value)
@@ -74,17 +94,23 @@ class SmoothingInitializer(Initializer):
             return self._sse_err(err)
         
         init_params = [self.init_params[param] for param in self.used_params["params"]]
-        estimated_params = opt.least_squares(fun=func, x0=init_params, bounds=(1e-6,1-1e-6)).x
+        
+        try:
+            results = opt.least_squares(fun=func, x0=init_params, bounds=(1e-6,1-1e-6))
+            estimated_params = results.x
 
-        init_components = [self.init_components["level"]]
-        if "trend_factor" in self.used_params["components"]:
-            init_components.append(self.init_components["trend_factor"])
-        if "seasonal_factors" in self.used_params["components"]:
-            for s in self.init_components["seasonal_factors"]:
-                init_components.append(s)
+            init_components = [self.init_components["level"]]
+            if "trend_factor" in self.used_params["components"]:
+                init_components.append(self.init_components["trend_factor"])
+            if "seasonal_factors" in self.used_params["components"]:
+                for s in self.init_components["seasonal_factors"]:
+                    init_components.append(s)
 
-        result_params = init_components + list(estimated_params)
-        return result_params
+            result_params = init_components + list(estimated_params)
+        except:
+            return None, False
+    
+        return result_params, results.success
     
     def __estimation_minimize(self):
 
@@ -123,13 +149,17 @@ class SmoothingInitializer(Initializer):
         for param in init_params:
             param_bounds.append((1e-6,1-1e-6))
 
-        result_params = opt.minimize(
-            func,
-            init_values,
-            bounds=param_bounds
-        )
+        try:
+            results = opt.minimize(
+                func,
+                init_values,
+                bounds=param_bounds
+            )
+        except:
+            return None, False
 
-        return list(result_params.x)
+
+        return list(results.x), results.success
         
     def __heuristic_initialization(self):
         """
@@ -202,10 +232,10 @@ class SmoothingInitializer(Initializer):
         self.__init_used_params()
 
         if self.estimation_method != "heuristic":
-            result_params = self.__estimation_minimize()
+            result_params, self.success = self.__estimation_minimize()
         
         else:
-            result_params = self.__estimation_simple()
+            result_params, self.success = self.__estimation_simple()
         
         def assign_results(results):
             
@@ -224,11 +254,8 @@ class SmoothingInitializer(Initializer):
 
             for i, param in enumerate(self.used_params["params"]):
                 self.init_params[param] = param_results[i]
-            
-            for component, value in self.init_components.items():
-                setattr(self.model, component, value)
         
-            for param, value in self.init_params.items():
-                setattr(self.model, param, value)
-        
-        assign_results(result_params)
+        if result_params is not None:
+            assign_results(result_params)
+
+        return self.init_params, self.init_components

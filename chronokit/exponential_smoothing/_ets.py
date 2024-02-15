@@ -3,10 +3,9 @@ import numpy as np
 from scipy.optimize import least_squares
 import scipy.stats as stats
 from chronokit.preprocessing._dataloader import DataLoader
-from chronokit.base._models import Model
-from chronokit.exponential_smoothing._initialization import SmoothingInitializer
+from chronokit.exponential_smoothing.__base_model import  InnovationsStateSpace
 
-class ETS(Model):
+class ETS(InnovationsStateSpace):
     def __init__(
         self,
         data,
@@ -49,8 +48,10 @@ class ETS(Model):
             as reference: 'Hyndman, R. J., Koehler, A. B., Ord, J. K., & Snyder, R. D. (2008). 
             Forecasting with exponential smoothing: The state space approach'
         """
-        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(data, **kwargs)
+        super().set_allowed_kwargs(["initial_level", 
+                                    "initial_trend_factor",
+                                    "initial_seasonal_factors",
+                                    "alpha", "beta", "phi", "gamma"])
 
         self.error_type = error_type
         self.trend = trend
@@ -58,34 +59,16 @@ class ETS(Model):
         self.seasonal = seasonal
         self.seasonal_periods = seasonal_periods
 
-        if self.seasonal == "mul":
-            assert (
-                DataLoader(data).to_numpy().min() > 0
-            ), "Methods with multiplicative seasonality requires \
-                data to be strictly positive"
-        
-        self.initializer = SmoothingInitializer(self, method=initialization_method)
-        self.initializer.initialize_parameters()
+        super().__init__(data, initialization_method, **kwargs)
 
-        self.params = self.initializer.init_params.copy()
-
-        self.alpha = self.params["alpha"]
-        self.beta = self.params["beta"]
-        self.gamma = self.params["gamma"]
-        self.phi = self.params["phi"]
-
-        self.init_components = self.initializer.init_components.copy()
-        self.components = self.initializer.init_components.copy()
-
-        self.level = self.components["level"]
-        self.trend_factor = self.components["trend_factor"]
-        self.seasonal_factors = self.components["seasonal_factors"]
-
-    def update_params(self, e_t):
+    def update_state(self, e_t):
 
         lprev, bprev = self.level.clone(), self.trend_factor.clone()
         s_prev = self.seasonal_factors[0].clone()
 
+        #This is equivalent to passing e_t as additive error
+        #However using this approach leads to better parameter estimations
+        #This is probably due to usage of scipy.optimize
         if self.error_type == "mul":
             error_term = lprev.clone()
 
@@ -153,9 +136,9 @@ class ETS(Model):
         self.level = level_update_p1 + level_update_p2
 
         if self.trend == "mul":
-            self.trend_factor = self.beta*(bprev**self.phi) + trend_update_p1
+            self.trend_factor = bprev**self.phi + trend_update_p1
         elif self.trend == "add":
-            self.trend_factor = self.beta*(bprev*self.phi) + trend_update_p1
+            self.trend_factor = bprev*self.phi + trend_update_p1
 
         if self.seasonal is not None:
             seasonal = seasonal_update_p1 + s_prev
@@ -169,24 +152,25 @@ class ETS(Model):
 
         self.fitted = torch.zeros(size=self.data.shape)
         self.errors = torch.zeros(size=self.data.shape)
+
         for ind, y in enumerate(self.data):
             if ind == 0:
                 self.fitted[0] = torch.nan
                 self.errors[0] = torch.nan
                 continue
-            
+
             y_hat = self.predict(1)
             self.fitted[ind] = y_hat
 
             e_t = y - y_hat
 
             if self.error_type == "mul":
-                e_t /= y_hat
-                
+                e_t = e_t/y_hat
+        
+            self.update_state(e_t)
             self.errors[ind] = e_t
-            self.update_params(e_t)
     
-    def predict(self, h):
+    def predict(self, h, confidence=None):
 
         forecasts = torch.zeros(h)
 
@@ -209,9 +193,11 @@ class ETS(Model):
                 y_hat += self.seasonal_factors[seasonal_step]
 
             forecasts[step-1] = y_hat
-        
-        if h == 1:
-            return forecasts[0]
 
-        else:
-            return forecasts
+        if confidence is not None:
+            if self.data_loader.is_valid_numeric(confidence) and (confidence < 1 and confidence > 0):
+                upper_bounds, lower_bounds = self.calculate_confidence_interval(forecasts, float(confidence))
+
+                return forecasts, (upper_bounds, lower_bounds)
+        
+        return forecasts

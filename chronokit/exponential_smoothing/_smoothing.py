@@ -3,10 +3,9 @@ import numpy as np
 from scipy.optimize import least_squares
 import scipy.stats as stats
 from chronokit.preprocessing._dataloader import DataLoader
-from chronokit.base._models import Model
-from chronokit.exponential_smoothing._initialization import SmoothingInitializer
+from chronokit.exponential_smoothing.__base_model import InnovationsStateSpace
 
-class ExponentialSmoothing(Model):
+class ExponentialSmoothing(InnovationsStateSpace):
     def __init__(
         self,
         data,
@@ -48,38 +47,19 @@ class ExponentialSmoothing(Model):
             as reference: 'Hyndman, R. J., Koehler, A. B., Ord, J. K., & Snyder, R. D. (2008). 
             Forecasting with exponential smoothing: The state space approach'
         """
-        super().set_allowed_kwargs(["alpha", "beta", "phi", "gamma"])
-        super().__init__(data, **kwargs)
+        super().set_allowed_kwargs(["initial_level", 
+                                    "initial_trend_factor",
+                                    "initial_seasonal_factors",
+                                    "alpha", "beta", "phi", "gamma"])
 
         self.trend = trend
         self.damped = damped
         self.seasonal = seasonal
         self.seasonal_periods = seasonal_periods
 
-        if self.seasonal == "mul":
-            assert (
-                DataLoader(data).to_numpy().min() > 0
-            ), "Methods with multiplicative seasonality requires \
-                data to be strictly positive"
+        super().__init__(data, initialization_method, **kwargs)
         
-        self.initializer = SmoothingInitializer(self, method=initialization_method)
-        self.initializer.initialize_parameters()
-
-        self.params = self.initializer.init_params.copy()
-
-        self.alpha = self.params["alpha"]
-        self.beta = self.params["beta"]
-        self.gamma = self.params["gamma"]
-        self.phi = self.params["phi"]
-
-        self.init_components = self.initializer.init_components.copy()
-        self.components = self.initializer.init_components.copy()
-
-        self.level = self.components["level"]
-        self.trend_factor = self.components["trend_factor"]
-        self.seasonal_factors = self.components["seasonal_factors"]
-
-    def update_params(self, y_t):
+    def update_state(self, y_t):
 
         lprev, bprev = self.level.clone(), self.trend_factor.clone()
         s_prev = self.seasonal_factors[0].clone()
@@ -157,9 +137,9 @@ class ExponentialSmoothing(Model):
             
             y_hat = self.predict(1)
             self.fitted[ind] = y_hat
-            self.update_params(y)
+            self.update_state(y)
     
-    def predict(self, h):
+    def predict(self, h, confidence=None):
 
         forecasts = torch.zeros(h)
 
@@ -182,9 +162,11 @@ class ExponentialSmoothing(Model):
                 y_hat += self.seasonal_factors[seasonal_step]
 
             forecasts[step-1] = y_hat
-        
-        if h == 1:
-            return forecasts[0]
 
-        else:
-            return forecasts
+        if confidence is not None:
+            if self.data_loader.is_valid_numeric(confidence) and (confidence < 1 and confidence > 0):
+                upper_bounds, lower_bounds = self.calculate_confidence_interval(forecasts, float(confidence))
+
+                return forecasts, (upper_bounds, lower_bounds)
+        
+        return forecasts
