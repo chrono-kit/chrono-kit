@@ -28,7 +28,7 @@ class _B_Op_:
                 iter(other)
                 return self.weight*other[-1 - self.order]
 
-            except:
+            except Exception as e:
                 return _B_Op_(weight=self.weight*other,
                             order=self.order)
         else:
@@ -43,18 +43,19 @@ class _B_Op_:
 class _Dist_Brackets_:
     """
     Special Brackets type for utilizing _B_Op_ class
-    Basically, multiplying by using this class multiplies the parameters inside the brackets by distributive law
+    Basically, multiplying by using this class 
+    multiplies the parameters inside the brackets by distributive law
     """
     def __init__(self, *args):
 
         self.args = list(args)
 
-        if len(self.args) == 1 and type(self.args[0]) == tuple:
+        if len(self.args) == 1 and isinstance(self.args[0], tuple):
             self.args = list(self.args[0])
     
     def __mul__(self, other):
 
-        if type(other) == type(self):
+        if isinstance(other, type(self)):
             args_list = []
             for arg in self.args:
                 for arg2 in other.args:
@@ -67,7 +68,7 @@ class _Dist_Brackets_:
             return_val = 0
             
             for arg in self.args:
-                if type(arg) == type(_B_Op_()):
+                if isinstance(arg, type(_B_Op_())):
                     return_val += arg*other
                 
                 #this arg is a weight argument (1, phi, theta etc...)
@@ -171,8 +172,6 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
             except:
                 continue
             
-            valid = True
-                
             #TODO: There are some conditions on parameter values for some cases
             #Ex: Theta need to lie between (-1,1)
             #Implement those
@@ -226,7 +225,7 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
         for order in ["p", "d", "q", "P", "D", "Q"]:
             attr_val = getattr(self, order)
 
-            if type(attr_val) != int or attr_val < 0:
+            if isinstance(attr_val, int) or attr_val < 0:
                 try:
                     val = max(0, int(attr_val))
                 except:
