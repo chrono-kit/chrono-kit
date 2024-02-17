@@ -17,7 +17,7 @@ class SARIMAInitializer(Initializer):
         """
         This class uses; 
         * yule_walker equation for AR and seasonal AR parameters
-        * theta_estimation equations for MA and seasonal MA parameters
+        * least squares estimation on for MA and seasonal MA parameters
 
         This is wrong, however *usually* leads to reasonable parameters
         Can also lead to unstability on some cases of models
@@ -79,6 +79,14 @@ class SARIMAInitializer(Initializer):
         
     def __yule_walker(self, data, order):
 
+        """
+        Yule-Walker equations 
+        for initializing parameters of an AR(p) model
+
+        The equations were written by Chapter 7.3.1 of Box, G. et al.
+        as reference
+        """
+
         r = DataLoader(AutoCorrelation(data).acf(order)).to_tensor()
         # Get the toeplitz matrix of autocovariances
         # R = [1, r1, r2, ..., rp-2, rp-1]
@@ -96,7 +104,7 @@ class SARIMAInitializer(Initializer):
         return phi_params
     
     def __least_squares_on_theta(self):
-
+        """Run least squares estimation on theta only"""
         def func(x):
 
             start_ind = 0
