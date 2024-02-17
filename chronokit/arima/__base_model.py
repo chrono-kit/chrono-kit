@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-import warnings
 from scipy.stats import norm
 from chronokit.preprocessing._dataloader import DataLoader
 from chronokit.base._models import TraditionalTimeSeriesModel
