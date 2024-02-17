@@ -9,5 +9,5 @@ from .metrics import (rmse,
                       BIC,
                       HQIC)
 
-from ._model_selection import ModelSelection
+from ._model_evaluation import ModelEvaluator
 

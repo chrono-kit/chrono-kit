@@ -1,11 +1,10 @@
 import numpy as np
-import pandas as pd
 import torch
 import scipy.optimize as opt
-import warnings
 from scipy.stats import norm
 from scipy.stats import linregress
 from scipy.linalg import toeplitz
+import warnings
 from chronokit.preprocessing._dataloader import DataLoader
 from chronokit.preprocessing import differencing
 from chronokit.preprocessing import AutoCorrelation
@@ -17,7 +16,7 @@ class SARIMAInitializer(Initializer):
         """
         This class uses; 
         * yule_walker equation for AR and seasonal AR parameters
-        * theta_estimation equations for MA and seasonal MA parameters
+        * least squares estimation on for MA and seasonal MA parameters
 
         This is wrong, however *usually* leads to reasonable parameters
         Can also lead to unstability on some cases of models
@@ -79,6 +78,14 @@ class SARIMAInitializer(Initializer):
         
     def __yule_walker(self, data, order):
 
+        """
+        Yule-Walker equations 
+        for initializing parameters of an AR(p) model
+
+        The equations were written by Chapter 7.3.1 of Box, G. et al.
+        as reference
+        """
+
         r = DataLoader(AutoCorrelation(data).acf(order)).to_tensor()
         # Get the toeplitz matrix of autocovariances
         # R = [1, r1, r2, ..., rp-2, rp-1]
@@ -96,7 +103,7 @@ class SARIMAInitializer(Initializer):
         return phi_params
     
     def __least_squares_on_theta(self):
-
+        """Run least squares estimation on theta only"""
         def func(x):
 
             start_ind = 0
@@ -137,12 +144,14 @@ class SARIMAInitializer(Initializer):
 
 
     def initialize_parameters(self):
-        
+        """Initialize model parameters"""
         self.__init_used_params()
 
         if self.estimation_method == "default":
             if self.model.q + self.model.Q > 0:
-                self.__least_squares_on_theta()
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore")
+                    self.__least_squares_on_theta()
             else:
                 self.success = True
             return self.init_params

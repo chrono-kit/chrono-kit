@@ -1,7 +1,17 @@
 import torch
 from chronokit.preprocessing._dataloader import DataLoader
 
-"""Performance evaluation metrics for model predictions"""
+"""
+Performance evaluation metrics for model predictions
+And Information Criterion for assessing model performance 
+during fitting.
+
+All metrics and criterions have been written with 
+Hyndman, R. et al. [1] as reference.
+
+[1]'Hyndman, R. J., Koehler, A. B., Ord, J. K., & Snyder, R. D. (2008). 
+    Forecasting with exponential smoothing: The state space approach'
+"""
 
 
 def mae(y_pred, y_true):
@@ -13,8 +23,8 @@ def mae(y_pred, y_true):
     *y_pred (array_like): Predicted values
     *y_true (array_like): Ground truth values
     """
-    y_pred = DataLoader(y_pred).to_tensor()
-    y_true = DataLoader(y_true).to_tensor()
+    y_pred = DataLoader(y_pred).match_dims(dims=1, return_type="tensor")
+    y_true = DataLoader(y_true).match_dims(dims=1, return_type="tensor")
 
     err = y_true - y_pred
     err = err[~torch.isnan(err)]
@@ -31,8 +41,8 @@ def mse(y_pred, y_true):
     *y_pred (array_like): Predicted values
     *y_true (array_like): Ground truth values
     """
-    y_pred = DataLoader(y_pred).to_tensor()
-    y_true = DataLoader(y_true).to_tensor()
+    y_pred = DataLoader(y_pred).match_dims(dims=1, return_type="tensor")
+    y_true = DataLoader(y_true).match_dims(dims=1, return_type="tensor")
 
     err = y_true - y_pred
     err = err[~torch.isnan(err)]
@@ -49,8 +59,8 @@ def rmse(y_pred, y_true):
     *y_pred (array_like): Predicted values
     *y_true (array_like): Ground truth values
     """
-    y_pred = DataLoader(y_pred).to_tensor()
-    y_true = DataLoader(y_true).to_tensor()
+    y_pred = DataLoader(y_pred).match_dims(dims=1, return_type="tensor")
+    y_true = DataLoader(y_true).match_dims(dims=1, return_type="tensor")
 
     err = y_true - y_pred
     err = err[~torch.isnan(err)]
@@ -62,10 +72,10 @@ def mape(y_pred, y_true):
     Mean Absolute Percentage Error
     """
 
-    y_pred = DataLoader(y_pred).to_tensor()
-    y_true = DataLoader(y_true).to_tensor()
+    y_pred = DataLoader(y_pred).match_dims(dims=1, return_type="tensor")
+    y_true = DataLoader(y_true).match_dims(dims=1, return_type="tensor")
 
-    assert (torch.min(abs(y_true)).item() <= 1e-6), "MAPE cannot be used for time series data that have\
+    assert (torch.min(abs(y_true)).item() > 1e-6), "MAPE cannot be used for time series data that have\
         values extremely close to 0 (<= 1e-6)"
     err = y_true - y_pred
     err = err[~torch.isnan(err)]
@@ -76,10 +86,10 @@ def symmetric_mape(y_pred, y_true):
     Symmetric MAPE
     """
 
-    y_pred = DataLoader(y_pred).to_tensor()
-    y_true = DataLoader(y_true).to_tensor()
+    y_pred = DataLoader(y_pred).match_dims(dims=1, return_type="tensor")
+    y_true = DataLoader(y_true).match_dims(dims=1, return_type="tensor")
 
-    assert (torch.min(abs(y_true)).item() <= 1e-6), "sMAPE cannot be used for time series data that have\
+    assert (torch.min(abs(y_true)).item() > 1e-6), "sMAPE cannot be used for time series data that have\
         values extremely close to 0 (<= 1e-6)"
     
     err = y_true - y_pred
@@ -92,8 +102,8 @@ def mase(y_true, y_pred):
     Mean Absolute Scaled Error
     """
 
-    y_pred = DataLoader(y_pred).to_tensor()
-    y_true = DataLoader(y_true).to_tensor()
+    y_pred = DataLoader(y_pred).match_dims(dims=1, return_type="tensor")
+    y_true = DataLoader(y_true).match_dims(dims=1, return_type="tensor")
 
     err = y_true - y_pred
     err = err[~torch.isnan(err)]
@@ -103,11 +113,12 @@ def mase(y_true, y_pred):
     return torch.mean(abs(err/scale))
 
 def IC(log_likelihood, num_parameters, penalty_factor):
-
+    """Default Information Criterion"""
     return log_likelihood + num_parameters*penalty_factor
 
 
 def AIC(log_likelihood, num_parameters):
+    """Akaike Information Criterion"""
     ll = DataLoader(log_likelihood).to_tensor()
     num_parameters = DataLoader(num_parameters).to_tensor()
 
@@ -115,6 +126,7 @@ def AIC(log_likelihood, num_parameters):
 
 
 def AIC_corrected(log_likelihood, num_parameters, num_observations):
+    """Corrected Akaike Information Criterion"""
     nobs = DataLoader(num_observations).to_tensor()
     ll = DataLoader(log_likelihood).to_tensor()
     num_parameters = DataLoader(num_parameters).to_tensor()
@@ -125,6 +137,7 @@ def AIC_corrected(log_likelihood, num_parameters, num_observations):
 
 
 def BIC(log_likelihood, num_parameters, num_observations):
+    """Bayesian Information Criterion"""
     nobs = DataLoader(num_observations).to_tensor()
     ll = DataLoader(log_likelihood).to_tensor()
     num_parameters = DataLoader(num_parameters).to_tensor()
@@ -135,6 +148,7 @@ def BIC(log_likelihood, num_parameters, num_observations):
     return IC(ll, num_parameters, penalty_factor)
 
 def HQIC(log_likelihood, num_parameters, num_observations):
+    """Hannan-Quinn Information Criterion"""
     nobs = DataLoader(num_observations).to_tensor()
     ll = DataLoader(log_likelihood).to_tensor()
     num_parameters = DataLoader(num_parameters).to_tensor()

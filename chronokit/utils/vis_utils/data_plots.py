@@ -70,7 +70,9 @@ def plot_decomp(
 
     fig, axes = plt.subplots(2 + num_seasonals, 1, figsize=figsize)
     ax_trend, ax_remainder = axes[0], axes[-1]
+    
     ax_trend.plot(range(len(trend)), trend, color=use_colors["trend"])
+
     ax_trend.set_ylabel("Trend")
     if title:
         ax_trend.title.set_text(title)
@@ -130,7 +132,7 @@ def plot_train_test_split(
     else:
         matplotlib.style.use("ggplot")
 
-    use_colors = {"train": "blue", "val": "orange", "test": "red"}
+    use_colors = {"train": "blue", "val": "darkorange", "test": "firebrick"}
 
     if colors:
         try:
@@ -156,12 +158,22 @@ def plot_train_test_split(
         val = DataLoader(val_data).to_numpy()
         plt.figure(figsize=figsize)
         plt.plot(range(len(train)), train, label="Train", color=use_colors["train"])
+        plt.scatter(range(len(train)), train, color=use_colors["y_true"], s=20)
+
         plt.plot(
             range(len(train)-1, len(train) + len(val_data)),
             np.concatenate(([train[-1]], val), axis=0),
             label="Validation",
             color=use_colors["val"],
         )
+        plt.scatter(
+            range(len(train)-1, len(train) + len(val_data)),
+            np.concatenate(([train[-1]], val), axis=0),
+            label="Validation",
+            color=use_colors["val"],
+            s=20
+        )
+
         plt.plot(
             range(
                 len(train + val_data)-1,
@@ -171,20 +183,41 @@ def plot_train_test_split(
             label="Test",
             color=use_colors["test"],
         )
-        plt.legend(loc="best")
+        plt.scatter(
+            range(
+                len(train + val_data)-1,
+                len(train) + len(val_data) + len(test_data),
+            ),
+            np.concatenate(([val[-1]], test), axis=0),
+            label="Test",
+            color=use_colors["test"],
+            s=20
+        )
+
+        plt.legend(loc="upper left")
         plt.title(title)
         plt.show()
 
     else:
         plt.figure(figsize=figsize)
         plt.plot(range(len(train)), train, label="Train", color=use_colors["train"])
+        plt.scatter(range(len(train)), train, label="Train", color=use_colors["train"], s=20)
+
         plt.plot(
             range(len(train)-1, len(train) + len(test)),
             np.concatenate(([train[-1]], test), axis=0),
             label="Test",
             color=use_colors["test"],
         )
-        plt.legend(loc="best")
+        plt.scatter(
+            range(len(train)-1, len(train) + len(test)),
+            np.concatenate(([train[-1]], test), axis=0),
+            label="Test",
+            color=use_colors["test"],
+            s=20
+        )
+
+        plt.legend(loc="upper left")
         plt.title(title)
         plt.show()
 

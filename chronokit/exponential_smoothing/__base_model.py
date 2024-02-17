@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-import warnings
 from scipy.stats import norm
 from chronokit.preprocessing._dataloader import DataLoader
 from chronokit.base._models import TraditionalTimeSeriesModel
@@ -10,13 +9,27 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
 
     def __init__(self, data, initialization_method="heuristic", **kwargs):
         """
-        Base model class for all model classes to inherit from.
-        Child classes are expected to implement their own .fit()
-        and .predict() methods
+        Base model class for state space models
+
+        InnovationsStateSpace name was inspired from Hyndman, R. et al. [1]
+
+        General state space model equation can be defined as;
+
+            y_t = w(x_{t-1}) + r(x_{t-1})*e_t
+            x_t = f(x_{t-1}) + g(x_{t-1})*e_t
+
+        where x_t is the state vector at time t.
+
+        All methods have been written with the below book as reference: 
+            [1] 'Hyndman, R. J., Koehler, A. B., Ord, J. K., & Snyder, R. D. (2008). 
+            Forecasting with exponential smoothing: The state space approach'
+        
+        This book may also be referenced as 'Hyndman, R. et al." throughout this repository
         """
 
         super().__init__(data, **kwargs)
         
+        #Check valid model
         self.__check_innovations_state_space()
         self.__init_model_info()
 
@@ -65,13 +78,17 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
         self.init_components = {"level": self.level,
                                 "trend_factor": self.trend_factor,
                                 "seasonal_factors": self.seasonal_factors}
-    
-    def report_fit_info(self):
-        pass
+        
+        self.seasonal_factors = DataLoader(self.seasonal_factors).to_tensor()
+        self.level = DataLoader(self.level).to_tensor()
+        self.trend_factor = DataLoader(self.trend_factor).to_tensor()
 
+        self.fitted = torch.zeros(size=self.data.shape)
+        self.errors = torch.zeros(size=self.data.shape)
+    
     def calculate_confidence_interval(self, forecasts, confidence):
         """
-        The calculations are made according to Table 6.1 in Hyndman et al.
+        The calculations are made according to Table 6.1 in Hyndman, R. et al.
         For model classes 1-3, we use given expressions in chapter 6.
         For model classes 4-5, we use simulated intervals.
         """
@@ -102,7 +119,7 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
     def _confidence_interval_known_method_ets(self, forecasts):
         
         """
-        See book chapter 6
+        See Hyndman, R. et al. Chapter 6
         Approximate intervals for model class 3 
         has not been implemented yet, so we use simulation.
         Algebraic methods for classes 1,2 are provided here
@@ -113,7 +130,9 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
         h = len(forecasts)
 
         #See BOOK 6.5
-        fit_errors = self.data - self.fitted
+        #We take the errors directly from those recorded during training
+        #As we need to use the multiplicative errors for ETS(M,X,X)
+        fit_errors = self.errors
         error_var = torch.nanmean(torch.square(fit_errors))
 
         #Class 1-3 share c_j values
@@ -148,7 +167,7 @@ class InnovationsStateSpace(TraditionalTimeSeriesModel):
                 
                 return error_var*var_multipliers
 
-            #Classs 2
+            #Class 2
             elif self.info["error"] == "M":
                 
                 var_multipliers = torch.square(forecasts.clone())

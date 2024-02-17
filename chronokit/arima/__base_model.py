@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-import warnings
 from scipy.stats import norm
 from chronokit.preprocessing._dataloader import DataLoader
 from chronokit.base._models import TraditionalTimeSeriesModel
@@ -10,10 +9,10 @@ class _B_Op_:
     """
     Stands for Backshift operator
 
-    _B_Op_(1) * y_t = y_(t-1)
-    _B_Op_(3) * y_t = y_(t-3)
+    _B_Op_(weight=1, order=1) * y_t = y_(t-1)
+    _B_Op_(weight=2, order=3) * y_t = 2*y_(t-3)
 
-    _B_Op_(2) * _B_Op_(1) = _B_Op_(3)
+    _B_Op_(weight=x, order=d) * _B_Op_(weight=y, order=k) = _B_Op_(weight=x*y, order=d+k)
 
     """
     def __init__(self, weight=1, order=1):
@@ -23,7 +22,7 @@ class _B_Op_:
 
     def __mul__(self, other):
 
-        if isinstance(other, type(self)):
+        if not isinstance(other, type(self)):
             try:
                 iter(other)
                 return self.weight*other[-1 - self.order]
@@ -75,7 +74,7 @@ class _Dist_Brackets_:
                 else:
                     return_val += arg*other[-1]
         
-            return torch.tensor(return_val)
+            return DataLoader(return_val).to_tensor()
 
     def __rmul__(self, other):
 
@@ -84,7 +83,11 @@ class _Dist_Brackets_:
 class _Diff_:
 
     def __new__(self, ord=1, seasonal_period=None):
-
+        """
+        Differencing operator used in ARIMA models
+        Differencing of order 1 = (1 - B)*y_t
+        Differencing of order d = ((1 - B)**d)*y_t
+        """
         if ord == 0:
             return _Dist_Brackets_(1)
         
@@ -100,11 +103,34 @@ class _Diff_:
 class ARIMAProcess(TraditionalTimeSeriesModel):
 
     def __init__(self, data, **kwargs):
+        """
+        Base class for all models based on ARIMA Processes.
+        This class handles initialization for parameters and attributes
+        of different specialized ARIMA based models
+    
+        Autoregressive process, AR(p) : (1 - phi_1*B - ... - phi_p*(B**p))*y_t = e_t
+
+        Moving Average process, MA(q): y_t = (1 - theta_1*B - ... - theta_q*(B**q))*e_t
+
+        Mixed Autoregressive-Moving Average Integrated Process, ARIMA(p,d,q):
+
+        (1 - phi_1*B - ... - phi_p*(B**p))((1-B)**d)*y_t = (1 - theta_1*B - ... - theta_q*(B**q))*e_t
+
+        All ARIMA models are developed by the below book as a reference;
+
+        'Box, G. E. P., Jenkins, G. M., Reinsel, G. C., & Ljung, G. M. (2015). 
+        Time series analysis: Forecasting and control (5th ed).'
+
+        This book may also be referenced as 'Box, G. et al." throughout this repository
+        """
 
         super().__init__(data, **kwargs)
 
+        #Check model validity
         self.__check_arima()
         self.__init_model_info()
+
+        #TODO: Implement proper initialization for ARIMA Processes
         initialization_method = "default"
 
         if initialization_method != "known":
@@ -132,8 +158,34 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
                        "theta": self.theta,
                        "seasonal_phi": self.seasonal_phi,
                        "seasonal_theta": self.seasonal_theta}
+        
+        self.__prepare_operations__()
+
+        self.phi = DataLoader(self.phi).to_tensor()
+        self.theta = DataLoader(self.theta).to_tensor()
+        self.seasonal_phi = DataLoader(self.seasonal_phi).to_tensor()
+        self.seasonal_theta = DataLoader(self.seasonal_theta).to_tensor()
+
+        self.fitted = torch.zeros(size=self.data.shape)
+        self.errors = torch.zeros(size=self.data.shape)
     
     def __prepare_operations__(self):
+        """
+        Prepare operations with model parameters
+
+        _B_Op_(weight=-phi[x], order=x+1) = -phi_x*(B**(x+1))
+
+        _Dist_Brackets_(1, 
+                        _B_Op_(weight=-phi[0], order=1), 
+                        ..., 
+                        _B_Op_(weight=-phi[p-1], order=p)
+        )
+
+                        = (1 - phi_1*B - .... - phi_p*(B**p))
+
+        _Diff_(ord=d, seasonal_periods=None) = (1 - B)**d
+        _Diff_(ord=d, seasonal_periods=m) = (1 - B**m)**d    
+        """
 
         ar_args = [1]
         for x in range(self.p):
@@ -142,7 +194,7 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
 
         ma_args = [1]
         for x in range(self.q):
-            ma_args.append(_B_Op_(weight=self.theta[x], order=x+1))
+            ma_args.append(_B_Op_(weight=-self.theta[x], order=x+1))
         self.ma_operator = _Dist_Brackets_(tuple(ma_args))
 
         seasonal_ar_args = [1]
@@ -152,7 +204,7 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
 
         seasonal_ma_args = [1]
         for x in range(self.Q):
-            seasonal_ma_args.append(_B_Op_(weight=self.seasonal_theta[x], order=self.seasonal_periods*(x+1)))
+            seasonal_ma_args.append(_B_Op_(weight=-self.seasonal_theta[x], order=self.seasonal_periods*(x+1)))
         self.seasonal_ma_operator = _Dist_Brackets_(tuple(seasonal_ma_args))
 
         self.diff_operator = _Diff_(ord=self.d, seasonal_period=None)
@@ -185,7 +237,7 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
         return valid_kwargs
 
     def __init_model_info(self):
-
+        """Initialize model information"""
         if self.seasonal_periods is not None:
             prefix = "S"
             seasonal_name = f"_{self.seasonal_order}{self.seasonal_periods}"
@@ -225,7 +277,9 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
         return model_class
 
     def __check_arima(self):
+        """Check valid ARIMA model"""
 
+        #Orders must be >= 0 and integer
         for order in ["p", "d", "q", "P", "D", "Q"]:
             attr_val = getattr(self, order)
 
@@ -237,6 +291,7 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
             
                 setattr(self, order, val)
         
+        #Order of (0,d,0), (0,D,0) is not accepted
         if self.P + self.Q == 0:
             setattr(self, "seasonal_periods", None)
 
@@ -248,6 +303,7 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
             
             setattr(self, "D", 0)
 
+        #Check seasonal_periods argument is valid
         if self.seasonal_periods is not None:
             #check the seasonal_periods argument is reasonable
             if  not self.data_loader.is_valid_numeric(self.seasonal_periods):
@@ -264,11 +320,16 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
 
             assert (len(self.data) > self.seasonal_periods*2),"Length\
                 of data must be > 2*seasonal_periods"
+        
+        #If not, seasonal order is (0,0,0)
         else:
             setattr(self, "P", 0)
             setattr(self, "D", 0)
             setattr(self, "Q", 0)
 
+        #Define the lookback for fitting to the data
+        #This lookback defines how many observations we need
+        #to start modeling data given the equations set by the model orders
         m = 0 if self.seasonal_periods is None else self.seasonal_periods
         lookback = self.p + self.d + m*(self.P + self.D)
 
@@ -283,7 +344,25 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
     
     def calculate_confidence_interval(self, forecasts, confidence):
         """
-        The
+        The Confidence Bounds for forecasts of an ARIMA model
+
+        Bounds are given by; 
+        (Chapter 5.2.3 of the book Box, G. et al. as reference)
+
+        b_{t+n} = y_{t+n} +- z(confidence)*sqrt(1+ sum(psi[:n]**2))*var(errors)
+
+        b_{t+n} : Probabilistic bounds for forecast at time t+n
+        y_{t+n}: Forecast at time t+n
+        
+        z(confidence): Associated z score set by the confidence level
+        var(errors): Variance of the errors generated during model fitting
+
+        psi values are calculated by Chapter 5.2 of the book Box, G. et al. 
+        as reference
+
+        psi_j = phi_j*psi_{j-1} + phi_p*psi_{j-p} - theta_j
+        psi_0 = 1
+
         """
 
         psi_vals = torch.ones(len(forecasts))
