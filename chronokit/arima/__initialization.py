@@ -4,6 +4,7 @@ import scipy.optimize as opt
 from scipy.stats import norm
 from scipy.stats import linregress
 from scipy.linalg import toeplitz
+import warnings
 from chronokit.preprocessing._dataloader import DataLoader
 from chronokit.preprocessing import differencing
 from chronokit.preprocessing import AutoCorrelation
@@ -143,12 +144,14 @@ class SARIMAInitializer(Initializer):
 
 
     def initialize_parameters(self):
-        
+        """Initialize model parameters"""
         self.__init_used_params()
 
         if self.estimation_method == "default":
             if self.model.q + self.model.Q > 0:
-                self.__least_squares_on_theta()
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore")
+                    self.__least_squares_on_theta()
             else:
                 self.success = True
             return self.init_params

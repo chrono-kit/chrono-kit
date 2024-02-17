@@ -5,36 +5,87 @@ import scipy.stats as stats
 from chronokit.preprocessing._dataloader import DataLoader
 from chronokit.exponential_smoothing.__base_model import  InnovationsStateSpace
 
+"""
+ETS (Error-Trend-Seasonality) Models for time series analysis and forecasting
+
+ETS Models was developed with Hyndman, R. et al. [1] as a reference;
+
+General ETS equation;
+ 
+    y_t = w(x_{t-1}) + r(x_{t-1})*e_t
+    x_t = f(x_{t-1}) + g(x_{t-1})*e_t
+
+where x_t is the state vector at time t;
+    x_t = (l_t, b_t, s0, s1, .., sm)
+
+With the same parameters and state vectors,
+point forecasts for;
+
+* ExponentialSmoothing(T, S)
+* ETS(A, T, S)
+* ETS(M, T, S)
+
+should be equal, given that T = trend and S = seasonal
+
+However, ETS models incorporate errors generated during fitting
+into state vector updates; hence leads to different parameter 
+estimations than Exponential Smoothing models.
+
+Some ETS models also have algebraic expressions for probabilistic
+forecast bounds given a confidence level. As they incorporate 
+prediction errors directly into parameter estimations.
+
+ETS(M, T, S) and ETS(A, T, S) models are equivalent models;
+
+However due to usage of multiplicative/additive errors during 
+state updates, lead to different parameter estimations.
+
+For further reading on ETS and Exponential Smoothing models;
+
+Refer to;
+
+[1] 'Hyndman, R. J., Koehler, A. B., Ord, J. K., & Snyder, R. D. (2008). 
+    Forecasting with exponential smoothing: The state space approach'
+
+"""
+
 class ETS(InnovationsStateSpace):
     def __init__(
-        self,
-        data,
-        error_type = None,
-        trend=None,
-        seasonal=None,
-        seasonal_periods=None,
-        damped=False,
-        initialization_method="heuristic",
-        **kwargs,
-    ):
+                self,
+                data,
+                error_type = "add",
+                trend=None,
+                seasonal=None,
+                seasonal_periods=None,
+                damped=False,
+                initialization_method="heuristic",
+                **kwargs,
+):
         """
-        Base class for exponential smoothing methods.hh                             
-        All smoothing methods inherit from this class and
-        is used for parameter initialization.
+        ETS (Error-Trend-Seasonality) Models for 
+        univariate time series modeling and forecasting
 
         Arguments:
 
+        *error_type (Optional[str]): Error component; "add" or "mul"
         *data (array_like): Univariate time series data
-        *trend (Optional[str]): Trend component; None or "add"
-        *seasonal (Optional[str]): Seasonal component; None, "add" or "mul"
+        *trend (Optional[str]): Trend component; One of [None, "add", "mul]
+        *seasonal (Optional[str]): Seasonal component; One of [None, "add", "mul]
+            None if seasonal_periods is None
         *seasonal_periods (Optional[int]): Cyclic period of the
-            seasonal component; int or None if seasonal is None
-        *damped (bool): Damp factor of the trend component;
+            seasonal component; None if seasonal is None
+        *damped (bool): Damp factor of the trend component; One of [True, False]
             False if trend is None
         *initialization_method (Optional[str]): Initialization method to use
-            for the model parameters; "heuristic", "simple" or "mle". Default heuristic
+            for the model parameters; One of ["heuristic", "simple", "mle"]. 
+            Default = 'heuristic'.
 
         Keyword Arguments:
+
+        ** initial_level (float): Initial value for the level component;
+        ** initial_trend_factor (float): Initial value for the trend component;
+        ** initial_seasonal_factors (array_like): Initial values for seasonal components; 
+            Must have length = seasonal_periods
 
         ** alpha (float): Smoothing parameter for level component;
             takes values in (0,1)
@@ -44,8 +95,8 @@ class ETS(InnovationsStateSpace):
         ** gamma (float): Smoothing parameter for seasonal component;
             takes values in (0,1)
 
-        Smoothing methods have been written with the below book
-            as reference: 'Hyndman, R. J., Koehler, A. B., Ord, J. K., & Snyder, R. D. (2008). 
+        ETS Models have been written with the below book as reference: 
+            'Hyndman, R. J., Koehler, A. B., Ord, J. K., & Snyder, R. D. (2008). 
             Forecasting with exponential smoothing: The state space approach'
         """
         super().set_allowed_kwargs(["initial_level", 
@@ -62,7 +113,20 @@ class ETS(InnovationsStateSpace):
         super().__init__(data, initialization_method, **kwargs)
 
     def update_state(self, e_t):
+        """
+        Update the state vector with model parameters and last error
 
+        Equations are given in Hyndman, R. et al. Table 2.2 and Table 2.3
+
+        For multiplicative error models, equations are the same with
+        additive error models.
+
+        However, since the error term is multiplicative, the update
+        equations can be acquired by substituting e_t in additive equations
+        by y_t*a_t where a_t is the multiplicative error
+
+        Refer to Hyndman, R. et al. Chapter 2.5 for further information
+        """
         lprev, bprev = self.level.clone(), self.trend_factor.clone()
         s_prev = self.seasonal_factors[0].clone()
 
@@ -145,7 +209,9 @@ class ETS(InnovationsStateSpace):
             self.seasonal_factors = torch.cat((self.seasonal_factors[1:], torch.tensor([seasonal])), dim=-1)
     
     def fit(self):
-        
+        """Fit the model to the given data"""
+
+        #Check valid components
         self.seasonal_factors = DataLoader(self.seasonal_factors).to_tensor()
         self.level = DataLoader(self.level).to_tensor()
         self.trend_factor = DataLoader(self.trend_factor).to_tensor()
@@ -171,7 +237,23 @@ class ETS(InnovationsStateSpace):
             self.errors[ind] = e_t
     
     def predict(self, h, confidence=None):
+        """
+        Predict the next h values with the model
 
+        .fit() should be called before making predictions
+
+        Arguments:
+
+        *h (int): Forecast horizon, minimum = 1
+        *confidence (Optional[float]): Confidence bounds
+            for predictions. Must take values in (0,1).
+        
+        Returns:
+
+        *forecasts (array_like): Forecasted h values
+        *bounds Optional(tuple): Upper and Lower
+            forecast bounds, returns only if confidence != None
+        """
         forecasts = torch.zeros(h)
 
         for step in range(1, h+1):

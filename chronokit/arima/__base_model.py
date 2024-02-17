@@ -74,7 +74,7 @@ class _Dist_Brackets_:
                 else:
                     return_val += arg*other[-1]
         
-            return torch.tensor(return_val)
+            return DataLoader(return_val).to_tensor()
 
     def __rmul__(self, other):
 
@@ -158,6 +158,16 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
                        "theta": self.theta,
                        "seasonal_phi": self.seasonal_phi,
                        "seasonal_theta": self.seasonal_theta}
+        
+        self.__prepare_operations__()
+
+        self.phi = DataLoader(self.phi).to_tensor()
+        self.theta = DataLoader(self.theta).to_tensor()
+        self.seasonal_phi = DataLoader(self.seasonal_phi).to_tensor()
+        self.seasonal_theta = DataLoader(self.seasonal_theta).to_tensor()
+
+        self.fitted = torch.zeros(size=self.data.shape)
+        self.errors = torch.zeros(size=self.data.shape)
     
     def __prepare_operations__(self):
         """

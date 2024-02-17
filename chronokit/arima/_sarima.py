@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import warnings
 import scipy.optimize as opt
 from scipy.linalg import toeplitz
 from scipy.stats import norm
@@ -148,8 +149,9 @@ class SARIMA(ARIMAProcess):
             pred = lhs - rhs
 
             return DataLoader(pred).to_numpy()
-    
-        sol = opt.fsolve(func, x0=0)[0]
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            sol = opt.fsolve(func, x0=0)[0]
 
         return DataLoader(sol).to_tensor()
     

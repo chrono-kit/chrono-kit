@@ -13,6 +13,23 @@ from chronokit.base._initializers import Initializer
 class SmoothingInitializer(Initializer):
 
     def __init__(self, model, method="mle"):
+        """
+        Initializer model for Smoothing models
+        which fall under InnovationsStateSpace models
+        
+        We use Chapter 2.6 and Chapter 5 from Hyndman, R. et al. [1]
+        as a reference for estimation methods
+
+        Also, we have looked at statsmodels[2] repository for starting
+        value choices for smoothing parameters to use in estimation
+
+        [1] 'Hyndman, R. J., Koehler, A. B., Ord, J. K., & Snyder, R. D. (2008). 
+            Forecasting with exponential smoothing: The state space approach'
+        
+        [2] "Seabold, Skipper, and Josef Perktold. 
+            'statsmodels: Econometric and statistical modeling with python.' 
+            Proceedings of the 9th Python in Science Conference. 2010."
+        """
 
         if method not in ["heuristic", "mle", "simple"]:
             warnings.warn(
@@ -80,6 +97,12 @@ class SmoothingInitializer(Initializer):
                 setattr(self.model, param, value)
 
     def __estimation_simple(self):
+        
+        """
+        Parameter estimation for heuristic initialization
+
+        See Hyndman, R. et al. Chapter 5.2
+        """
 
         #LinReg on the parameters only
         def func(x):
@@ -98,7 +121,9 @@ class SmoothingInitializer(Initializer):
         init_params = [self.init_params[param] for param in self.used_params["params"]]
         
         try:
-            results = opt.least_squares(fun=func, x0=init_params, bounds=(1e-6,1-1e-6))
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                results = opt.least_squares(fun=func, x0=init_params, bounds=(1e-6,1-1e-6))
             estimated_params = results.x
 
             init_components = [self.init_components["level"]]
@@ -115,7 +140,18 @@ class SmoothingInitializer(Initializer):
         return result_params, results.success
     
     def __estimation_minimize(self):
+        """
+        Estimation of parameters, along with the starting
+        component values
 
+        Works by minimizing either negative log_likelihood 
+        or sum of squared errors
+
+        We also choose initial estimates for component values
+        by the heuristic initialization results
+
+        See Hyndman, R. et al. Chapter 5.1 as reference
+        """
         init_components = [self.init_components["level"]]
         if "trend_factor" in self.used_params["components"]:
             init_components.append(self.init_components["trend_factor"])
@@ -152,11 +188,13 @@ class SmoothingInitializer(Initializer):
             param_bounds.append((1e-6,1-1e-6))
 
         try:
-            results = opt.minimize(
-                func,
-                init_values,
-                bounds=param_bounds
-            )
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                results = opt.minimize(
+                                    func,
+                                    init_values,
+                                    bounds=param_bounds
+                )
         except:  # noqa: E722
             return None, False
 
@@ -166,7 +204,7 @@ class SmoothingInitializer(Initializer):
     def __heuristic_initialization(self):
         """
         Heuristic initialization method for initial components
-        See: Hyndman et al. section 2.6.1
+        See: Hyndman, R. et al. Chapter 2.6.1 and Chapter 5.2 
         """
 
         data = DataLoader(self.model.data).to_numpy().copy()
@@ -218,8 +256,9 @@ class SmoothingInitializer(Initializer):
 
         else:
             adjusted_data = data.copy()
-
-        result = linregress(x=np.arange(1,11), y=adjusted_data[:10])
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            result = linregress(x=np.arange(1,11), y=adjusted_data[:10])
         initial_level = torch.tensor(result[1], dtype=torch.float32)
 
         if trend == "add":
@@ -230,7 +269,7 @@ class SmoothingInitializer(Initializer):
         return initial_level, initial_trend, initial_seasonal
     
     def initialize_parameters(self):
-        
+        """Initialize model parameters"""
         self.__init_used_params()
 
         if self.estimation_method != "heuristic":

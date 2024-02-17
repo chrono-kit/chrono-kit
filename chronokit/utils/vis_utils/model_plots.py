@@ -16,6 +16,7 @@ def plot_predictions(
     title=None,
     style=None,
     metrics=None,
+    **kwargs
 ):
     """
     Utility function for plotting prediction results of the time series model
@@ -36,7 +37,14 @@ def plot_predictions(
         'https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html'
     *metrics (Optional[iterable]): Evaluation metrics to use for the
         predictions to report on the plot
+
+    **Keyword Arguments:
+
+    *ax (matplotlib.pyplot.ax): Subplot ax to plot the figure. Will not show the plot if given,
+        Instead will plot the figure on the ax. Used on .evaluate() methods of the models
     """
+
+    ax = kwargs.get("ax", None)
 
     try:
         y_true = DataLoader(y_true).to_numpy()
@@ -151,22 +159,27 @@ def plot_predictions(
     else:
         matplotlib.style.use("ggplot")
 
-    plt.figure(figsize=figsize)
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+        show_plot = True
+    else:
+        show_plot = False
+
     if pre_vals is not None:
         pre_vals = DataLoader(pre_vals).to_numpy()
         main_plt_range = range(len(pre_vals)-1, len(pre_vals) + len(y_pred))
-        plt.plot(range(len(pre_vals)), pre_vals, color=use_colors["pre_vals"])
-        plt.scatter(range(len(pre_vals)), pre_vals, color=use_colors["pre_vals"], s=20)
+        ax.plot(range(len(pre_vals)), pre_vals, color=use_colors["pre_vals"])
+        ax.scatter(range(len(pre_vals)), pre_vals, color=use_colors["pre_vals"], s=20)
         y_true = np.concatenate((pre_vals[-1].reshape(tuple([1 for x in y_true.shape])), y_true), axis=0)
         y_pred = np.concatenate((pre_vals[-1].reshape(tuple([1 for x in y_pred.shape])), y_pred), axis=0)
     else:
         main_plt_range = range(len(y_pred))
-    plt.plot(main_plt_range, y_true, color=use_colors["y_true"], label="Y True")
-    plt.plot(main_plt_range, y_pred, color=use_colors["y_pred"], label="Y Predicted")
-    plt.scatter(main_plt_range, y_true, color=use_colors["y_true"], s=20)
-    plt.scatter(main_plt_range, y_pred, color=use_colors["y_pred"], s=20)
+    ax.plot(main_plt_range, y_true, color=use_colors["y_true"], label="Y True")
+    ax.plot(main_plt_range, y_pred, color=use_colors["y_pred"], label="Y Predicted")
+    ax.scatter(main_plt_range, y_true, color=use_colors["y_true"], s=20)
+    ax.scatter(main_plt_range, y_pred, color=use_colors["y_pred"], s=20)
     if error_bounds:
-        plt.fill_between(
+        ax.fill_between(
             main_plt_range,
             error_bounds["upper"],
             error_bounds["lower"],
@@ -183,20 +196,22 @@ def plot_predictions(
             title = title + "\n" + append_title
         else:
             title = append_title
-    plt.title(title)
-    plt.legend(loc="best")
-    plt.show()
+    ax.set_title(title)
+    ax.legend(loc="upper left")
+    if show_plot:
+        plt.show()
 
 def plot_model_fit(model, 
                    figsize=(16, 6),
                    colors=None,
                    title="True vs. Fitted Data",
                    style=None,
-                   metrics=None
+                   metrics=None,
+                   **kwargs
 ):
 
     assert (hasattr(model, "fitted")), "Please fit the model before calling plot_model_fit()"
 
     plot_predictions(y_true=model.data, y_pred=model.fitted,
                      bounds=None, pre_vals=None, figsize=figsize,
-                     colors=colors, title=title, style=style, metrics=metrics)
+                     colors=colors, title=title, style=style, metrics=metrics, **kwargs)
