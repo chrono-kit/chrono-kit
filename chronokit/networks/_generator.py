@@ -22,49 +22,50 @@ class NeuralNetwork(nn.Module):
                     forward: ["layer1", "activation1", "layer2", "activation2"]
                 }
         '''
+
+        raise NotImplementedError(
+            "This class is unavailable as of v1.1.x"
+        )
         super(NeuralNetwork, self).__init__()
         self.architecture = architecture
         # Check if architecture is valid
-        if not self._check_architecture():
-            raise ValueError("Invalid architecture")
+        self._check_architecture()
 
         # Create layers if architecture is valid
         self.layers = nn.ModuleDict(architecture["layers"])
-        self.activations = nn.ModuleDict(architecture["activations"])
+
+        if "activations" in architecture:
+            self.activations = nn.ModuleDict(architecture["activations"])
+        else:
+            self.activations = None
+
         self.nn_forward = architecture["forward"]
 
     def _check_architecture(self):
-        '''
-        Checks if the architecture is valid
+        """Checks if the architecture is valid"""
 
-        Args:
-            None
-
-        Returns:
-            bool: True if architecture is valid, False otherwise
-        '''
         # Check if architecture is a dictionary
         if not isinstance(self.architecture, dict):
             raise ValueError("Neural Network model architecture must be a dictionary")
+        
         # Check if architecture contains layers
         if "layers" not in self.architecture:
             raise ValueError("Neural Network model architecture must contain 'layers'")
         # Check if layers are in a dictionary and not empty
         if not isinstance(self.architecture["layers"], dict) or len(self.architecture["layers"]) == 0:
             raise ValueError("Neural Network model architecture 'layers' must be a non empty dictionary")
-        # Check if architecture contains activations
-        if "activations" not in self.architecture:
-            raise ValueError("Neural Network model architecture must contain activations")
+    
+        if "activations" in self.architecture:
         # Check if activations are in a dictionary and not empty
-        if not isinstance(self.architecture["activations"], dict) or len(self.architecture["activations"]) == 0:
-            raise ValueError("Neural Network model architecture activations must be a non empty dictionary")
+            if not isinstance(self.architecture["activations"], dict) or len(self.architecture["activations"]) == 0:
+                raise ValueError("Neural Network model architecture activations must be a non empty dictionary")
+        
         # Check if architecture contains forward
         if "forward" not in self.architecture:
             raise ValueError("Neural Network model architecture must contain forward list")
         # Check if forward is a list and not empty
         if not isinstance(self.architecture["forward"], list) or len(self.architecture["forward"]) == 0:
             raise ValueError("Neural Network model architecture forward must be a non empty list")
-        return True
 
     def forward(self, x):
         '''
