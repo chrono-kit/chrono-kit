@@ -72,7 +72,6 @@ def plot_decomp(
     ax_trend, ax_remainder = axes[0], axes[-1]
     
     ax_trend.plot(range(len(trend)), trend, color=use_colors["trend"])
-    ax_trend.plot(range(len(trend)), trend, color=use_colors["trend"])
 
     ax_trend.set_ylabel("Trend")
     if title:
@@ -87,17 +86,10 @@ def plot_decomp(
                 cur_seasonal,
                 color=use_colors["seasonal"],
             )
-            ax_seasonal.scatter(
-                range(len(cur_seasonal)),
-                cur_seasonal,
-                color=use_colors["seasonal"],
-                s=15
-            )
             ax_seasonal.set_ylabel(f"Seasonal_{i}")
     else:
         ax_seasonal = axes[1]
         ax_seasonal.plot(range(len(seasonal)), seasonal, color=use_colors["seasonal"])
-        ax_seasonal.scatter(range(len(seasonal)), seasonal, color=use_colors["seasonal"], s=15)
         ax_seasonal.set_ylabel("Seasonal")
 
     ax_remainder.scatter(range(len(remainder)), remainder, color=use_colors["remainder"])
