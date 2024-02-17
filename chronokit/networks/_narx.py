@@ -5,9 +5,14 @@ from chronokit.base._models import NeuralTimeSeriesModel
 
 
 class NARXModel(nn.Module):
-    '''
-    Torch implementation of the NARX model.
-    '''
+    """
+    Torch implementation of Univariate NARX model.
+    
+    Implementation was made with mathworks article [1] as reference
+
+    [1] https://www.mathworks.com/help/deeplearning/ug/design-time-series-narx-feedback-neural-networks.html
+    """
+
     def __init__(
                 self, 
                 window,
@@ -68,15 +73,38 @@ class NARXModel(nn.Module):
         return output
 
 class NARX(NeuralTimeSeriesModel):
-    '''
-    Nonlinear AutoRegressive with eXogenous inputs (NARX) main model class.
-    '''
     def __init__(
-            self,
-            data,
-            exogenous_data,
-            config = {}
-):        
+                self,
+                data,
+                exogenous_data,
+                config = {}
+):       
+        """
+        Neural Network based NARX model for univariate time series modeling.
+
+        Arguments:
+
+        * data (array_like): Univarite time series data to model
+        * exogenous_data (array_like): Exogenous data to use for modeling
+            the data. Must be of the same length as the data.
+        * config (Optional[dict]): Configurations for the model architecture
+            Default: {
+                    "batch_size": 10,
+                    "hidden_size": 10,
+                    "device": "cpu",
+                    "window":1, 
+                    "exog_window": 1,
+                    "optimizer": torch.optim.AdamW, 
+                    "lr": 0.001,
+                    "criterion": torch.nn.MSELoss(),
+                    "batch_norm_momentum": 0.0, # If 0.0, batch norm is not used
+                    "dropout": 0.0, # If 0.0, dropout is not used
+            }
+    
+        Implementation was made with mathworks article [1] as reference
+
+        [1] https://www.mathworks.com/help/deeplearning/ug/design-time-series-narx-feedback-neural-networks.html
+        """
         super().__init__(data, exogenous_data=exogenous_data)
 
         # Initialize config
@@ -86,7 +114,8 @@ class NARX(NeuralTimeSeriesModel):
                 exog_window=self.config["exog_window"],
                 hidden_size=self.config['hidden_size'], 
                 batch_norm_momentum=self.config['batch_norm_momentum'], 
-                dropout=self.config['dropout']
+                dropout=self.config['dropout'],
+                device=self.config["device"]
             )
 
     def _init_config_(self, config):
@@ -156,7 +185,7 @@ class NARX(NeuralTimeSeriesModel):
         assert self.config['dropout'] >= 0 and self.config['dropout'] <= 1, "dropout must be between 0 and 1"
     
     def _prep_training_data(self):
-
+        """Prepares data to use for training"""
         lookback = max(self.config["window"], self.config["exog_window"])
 
         endog_inputs = torch.zeros((
@@ -184,17 +213,16 @@ class NARX(NeuralTimeSeriesModel):
         return endog_inputs, exog_inputs, targets 
 
     def fit(self, epochs=20, verbose=False):
-        '''
+        """
         Trains the model
 
-        Args:
-            epochs (int): Number of epochs to train the model
+        Arguments:
+        *epochs (int): Number of epochs to train the model.
+        *verbose (Optional[bool]): Whether to report loss for each epoch
 
         Returns:
-            train_hist (list): List of training losses
-        
-        
-        '''
+        *train_hist (list): List of training losses at each epoch
+        """
         # Loading data and model to device
         endog_inps, exog_inps, targets = self._prep_training_data()
         self.model = self.model.to(self.config['device'])
@@ -252,7 +280,20 @@ class NARX(NeuralTimeSeriesModel):
                 h,
                 exogenous_inputs=None,
 ):
-        
+        """
+        Predict the next h values with the trained model
+
+        Arguments:
+
+        *h (int): Forecast horizon, minimum = 1
+        *exogenous_inputs (Optional[array_like]): Exogenous values to use
+            when forecasting. If future exogenous values are not available;
+            will use the last encountered values. Default = None
+
+        Returns:
+
+        *forecasts (array_like): Predicted h values
+        """
         endog_features = self.data[-self.config["window"]:].clone()
         exog_features = self.exogenous_data[-self.config["exog_window"]:].clone()
 
