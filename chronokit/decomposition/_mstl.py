@@ -2,8 +2,7 @@ import numpy as np
 import pandas as pd
 from chronokit.preprocessing._dataloader import DataLoader
 from chronokit.utils.vis_utils import plot_decomp
-from chronokit.decomposition import STL
-
+from chronokit.decomposition._stl import STL
 
 def MSTL(
     data,

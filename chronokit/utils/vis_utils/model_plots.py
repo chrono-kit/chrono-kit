@@ -3,7 +3,12 @@ import matplotlib
 import matplotlib.style
 import matplotlib.pyplot as plt
 from chronokit.preprocessing._dataloader import DataLoader
-from chronokit.utils.evaluation.metrics import mae, mse, rmse
+from chronokit.utils.evaluation.metrics import (rmse, 
+                                                mse, 
+                                                mae,
+                                                mase,
+                                                mape,
+                                                symmetric_mape)
 
 def plot_predictions(
     y_true,
@@ -138,18 +143,20 @@ def plot_predictions(
 
         for i in metrics:
             assert isinstance(i, str), "Provide metrics as an iterable with string entries"
-            assert i in [
-                "rmse",
-                "mse",
-                "mae",
-            ], "Supported metrics are: ['rmse', 'mse' and 'mae']"
+            
+            valid_metrics = {
+                        "mae": mae,
+                        "mse": mse,
+                        "rmse": rmse,
+                        "mape": mape,
+                        "s_mape": symmetric_mape,
+                        "mase": mase,
+            }
 
-            if i == "rmse":
-                plt_metrics["RMSE"] = rmse(y_pred, y_true).item()
-            if i == "mse":
-                plt_metrics["MSE"] = mse(y_pred, y_true).item()
-            if i == "mae":
-                plt_metrics["MAE"] = mae(y_pred, y_true).item()
+            assert i in valid_metrics, f"Supported metrics are: {list(valid_metrics.keys())}"
+
+
+            plt_metrics[i.upper()] = valid_metrics[i](y_pred, y_true).item()
 
     assert isinstance(title, str) or title is None, "Plot title must be a string"
 

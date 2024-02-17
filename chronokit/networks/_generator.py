@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-class NeuralNetwork(nn.Module):
+class TSNeuralNetwork(nn.Module):
     def __init__(self,architecture):
         '''
         This class takes a dictionary of layers and parameters and creates

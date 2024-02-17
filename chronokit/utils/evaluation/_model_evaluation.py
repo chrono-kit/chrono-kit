@@ -270,18 +270,18 @@ class ModelEvaluator:
                     
         
         if model_type == "smoothing":
-            print("Evaluation parameters for smoothing models...")
+            print("Evaluating parameters for smoothing models...")
             models = self.__get_smoothing_models(tr_data, seasonal_periods, args=smoothing_args)
             
         elif model_type == "arima":
-            print("Evaluation parameters for arima models...")
+            print("Evaluating parameters for arima models...")
             models = self.__get_sarima_models(tr_data, seasonal_periods, args=sarima_args)
 
         else:
-            print("Evaluation parameters for smoothing models...")
+            print("Evaluating parameters for smoothing models...")
             smoothing_models = self.__get_smoothing_models(tr_data, seasonal_periods, args=smoothing_args)
 
-            print("Evaluation parameters for arima models...")
+            print("Evaluating parameters for arima models...")
             arima_models = self.__get_sarima_models(tr_data, seasonal_periods, args=sarima_args)
 
             models = smoothing_models + arima_models
