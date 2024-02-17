@@ -1,57 +1,93 @@
 import torch
 import torch.nn as nn
-from chronokit.base._models import Model
 from chronokit.preprocessing._dataloader import DataLoader
+from chronokit.base._models import NeuralTimeSeriesModel
 
 
-class NARXModel(torch.nn.Module):
+class NARXModel(nn.Module):
     '''
     Torch implementation of the NARX model.
     '''
-    def __init__(self, n_features, hidden_size, batch_norm_momentum=0.0, dropout=0.0):
+    def __init__(
+                self, 
+                window,
+                exog_window,
+                hidden_size, 
+                batch_norm_momentum=0.0, 
+                dropout=0.0,
+                device = "cpu"
+    ):
+        
         super(NARXModel, self).__init__()
-        self.Wx = nn.Linear(n_features, hidden_size, bias=False)
-        self.Wy = nn.Linear(1, hidden_size)
-        if batch_norm_momentum > 0.0:
-            self.batch_norm = nn.BatchNorm1d(hidden_size, momentum=batch_norm_momentum)
-        self.dropout = nn.Dropout(dropout)
-        self.output_layer = nn.Linear(hidden_size, 1)
-        self.tanh = nn.Tanh()
+        torch.manual_seed(7)
 
-    def forward(self, x, y):
+        self.Wy = nn.Parameter(data=torch.randn((window, hidden_size), dtype=torch.float32), requires_grad=True).to(device)
+        self.Wx = nn.Parameter(data=torch.randn((exog_window, hidden_size), dtype=torch.float32), requires_grad=True).to(device)
+        self.bias = nn.Parameter(data=torch.zeros((1), dtype=torch.float32), requires_grad=True).to(device)
+
+        if batch_norm_momentum > 0.0:
+            self.batch_norm = nn.BatchNorm1d(hidden_size, momentum=batch_norm_momentum).to(device)
+        self.dropout = nn.Dropout(dropout).to(device)
+        self.output_layer = nn.Linear(hidden_size, 1, dtype=torch.float32).to(device)
+        self.tanh = nn.Tanh()
+        
+        #Only Xavier Initialization is available as of v1.1.x
+        #More will be available later
+        nn.init.xavier_normal_(self.Wx)
+        nn.init.xavier_normal_(self.Wx)
+        nn.init.xavier_normal_(self.output_layer.weight)
+
+    def forward(
+            self,
+            endog_inputs, 
+            exog_inputs
+):
         '''
         Forward pass of the model
 
         Args:
-            x (torch.Tensor): Input tensor (batch_size, n_features)
-            y (torch.Tensor): Output tensor (batch_size, 1)
+            endog_inputs (torch.Tensor): Endogenous input tensor (batch_size, window)
+            exog_inputs (torch.Tensor): Exogenous input tensor (batch_size, exog_window)
 
         Returns:
-            output (torch.Tensor): Output tensor (batch_size, 1)
+            output (torch.Tensor): Output tensor (batch_size, n_features)
         
         '''
-        x_out = self.Wx(x)
-        y_out = self.Wy(y)
-        output = self.tanh(x_out + y_out)
+        y_out = torch.matmul(endog_inputs, self.Wy) #shape: (batch, hidden)
+        x_out = torch.matmul(exog_inputs, self.Wx) #shape: (batch, hidden)
+
+        grouped = x_out + y_out + self.bias #shape: (batch, hidden)
+
+        output = self.tanh(grouped)
         if hasattr(self, 'batch_norm'):
-            output = self.batch_norm(output)
+            output = self.batch_norm(output.transpose(1,2)).transpose(1,2)
+        
         output = self.dropout(output)
-        output = self.output_layer(output)
+        output = self.output_layer(output) #shape: (batch, 1)
+
         return output
 
-class NARX(Model):
+class NARX(NeuralTimeSeriesModel):
     '''
     Nonlinear AutoRegressive with eXogenous inputs (NARX) main model class.
     '''
-    def __init__(self,x,y,config={}):        
-        # Set allowed kwargs
-        self.set_allowed_kwargs(['config'])
+    def __init__(
+            self,
+            data,
+            exogenous_data,
+            config = {}
+):        
+        super().__init__(data, exogenous_data=exogenous_data)
 
         # Initialize config
         self._init_config_(config)
-        self.x = DataLoader(x).to_tensor()
-        self.y = DataLoader(y).to_tensor()
-        self.model = NARXModel(self.config['n_features'], self.config['hidden_size'], self.config['batch_norm_momentum'], self.config['dropout'])
+        self.model = NARXModel(
+                window=self.config["window"],
+                exog_window=self.config["exog_window"],
+                hidden_size=self.config['hidden_size'], 
+                batch_norm_momentum=self.config['batch_norm_momentum'], 
+                dropout=self.config['dropout']
+            )
 
     def _init_config_(self, config):
         '''
@@ -69,8 +105,8 @@ class NARX(Model):
             "batch_size": 10,
             "hidden_size": 10,
             "device": "cpu",
-            "n_features": 1,
             "window":1,
+            "exog_window": 1,
             "optimizer": torch.optim.AdamW,
             "lr": 0.001,
             "criterion": torch.nn.MSELoss(),
@@ -83,6 +119,9 @@ class NARX(Model):
 
         # Check if config is valid
         self._check_config()
+
+        self.info["model"] = "NARX"
+        self.info["model_config"] = self.config
 
     def _check_config(self):
         '''
@@ -98,56 +137,53 @@ class NARX(Model):
         # Check if config is valid
         assert self.config['batch_size'] > 0, "batch_size must be greater than 0"
         assert self.config['hidden_size'] > 0, "hidden_size must be greater than 0"
-        assert self.config['n_features'] > 0, "n_features must be greater than 0"
+
         assert self.config['window'] > 0, "window must be greater than 0"
+        assert self.config['exog_window'] > 0, "window must be greater than 0"
+
         assert self.config['lr'] > 0, "lr must be greater than 0"
-        assert self.config['optimizer'] in [getattr(torch.optim, o) for o in dir(torch.optim) if not o.startswith("_")], "optimizer must be part of torch.optim"
+
+        assert (self.config['optimizer'] in [
+                                            getattr(torch.optim, o) for o in dir(torch.optim) 
+                                            if not o.startswith("_")
+                                            ]), "optimizer must be part of torch.optim"
+        
         assert self.config['criterion'] is not None, "criterion cannot be None"
-        assert self.config['batch_norm_momentum'] >= 0 and self.config['batch_norm_momentum'] <= 1, "batch_norm_momentum must be between 0 and 1"
+
+        assert (self.config['batch_norm_momentum'] >= 0 and 
+                 self.config['batch_norm_momentum'] <= 1), "batch_norm_momentum must be between 0 and 1"
+        
         assert self.config['dropout'] >= 0 and self.config['dropout'] <= 1, "dropout must be between 0 and 1"
+    
+    def _prep_training_data(self):
 
-    def _check_dimensions(self, x, y):
-        '''
-        Checks if the dimensions of x and y are valid for the model
+        lookback = max(self.config["window"], self.config["exog_window"])
 
-        Args:
-            x (torch.Tensor): Input tensor
-            y (torch.Tensor): Output tensor
-
-        Returns:
-            x (torch.Tensor): Input tensor
-            y (torch.Tensor): Output tensor
+        endog_inputs = torch.zeros((
+                                len(self.data)-lookback, 
+                                self.config["window"]
+                        )
+        )
         
-        '''
+        exog_inputs = torch.zeros((
+                                len(self.data)-lookback, 
+                                self.config["exog_window"]
+                        )
+        )
 
-        # If 1D, convert to 2D
-        if len(x.shape) == 1:
-            x = x.unsqueeze(1)
-        if len(y.shape) == 1:
-            y = y.unsqueeze(1)
+        targets = torch.zeros((len(self.data)-lookback, 1))
 
-        return x, y
+        for i in range(lookback, len(self.data)):
+            endog_features = self.data[i-self.config["window"]:i].clone()
+            exog_features = self.exogenous_data[i-self.config["exog_window"]:i].clone()
 
-    def _load_data(self):
-        '''
-        Checks if the dimensions of x and y are valid for the model and creates a dataloader
+            endog_inputs[i-lookback, :] = endog_features
+            exog_inputs[i-lookback, :] = exog_features
+            targets[i-lookback, :] = self.data[i].clone()
 
-        Args:
-            None
+        return endog_inputs, exog_inputs, targets 
 
-        Returns:
-            dataloader (torch.utils.data.DataLoader): Dataloader
-        
-        '''
-        # Checking dimensions
-        self.x, self.y = self._check_dimensions(self.x, self.y)
-
-        # Create dataset and dataloader
-        dataset = torch.utils.data.TensorDataset(self.x, self.y)
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=self.config['batch_size'],shuffle=False,drop_last=True)
-        return dataloader
-
-    def fit(self, epochs=20):
+    def fit(self, epochs=20, verbose=False):
         '''
         Trains the model
 
@@ -160,56 +196,85 @@ class NARX(Model):
         
         '''
         # Loading data and model to device
-        dataloader = self._load_data()
+        endog_inps, exog_inps, targets = self._prep_training_data()
         self.model = self.model.to(self.config['device'])
 
         # Training
         train_hist = []
         criterion = self.config['criterion']
         optimizer = self.config['optimizer'](self.model.parameters(), self.config['lr'])
-        total_loss = 0.0
+        batch_size = self.config["batch_size"]
 
+        self.fitted = torch.zeros(self.data.shape)*torch.nan
+
+        self.model.train()
         for epoch in range(epochs):
-            self.model.train()
-            for batch_X, batch_y in dataloader:
-                batch_X, batch_y = batch_X.to(self.config['device']), batch_y.to(self.config['device'])
+            
+            losses = []
+
+            for batch in range(0, len(targets), batch_size):
+
+                if batch + batch_size > len(targets):
+                    batch_y = endog_inps[batch:, :].clone().to(self.config["device"])
+                    batch_x = exog_inps[batch:, :].clone().to(self.config["device"])
+                    batch_target = targets[batch:, :].clone().to(self.config["device"])
+                else:
+                    batch_y = endog_inps[batch:batch+batch_size, :].clone().to(self.config["device"])
+                    batch_x = exog_inps[batch:batch+batch_size, :].clone().to(self.config["device"])
+                    batch_target = targets[batch:batch+batch_size, :].clone().to(self.config["device"]) 
+                
+
                 optimizer.zero_grad()
-                predictions = self.model(batch_X,batch_y)
-                loss = criterion(predictions, batch_y)
+                predictions = self.model(batch_y, batch_x)
+                loss = criterion(predictions, batch_target)
 
                 loss.backward()
                 optimizer.step()
 
-                total_loss += loss.item()
-
-            # Calculate average training loss and accuracy
-            average_loss = total_loss / len(dataloader)
+                losses.append(loss.item())
+            
+            average_loss = sum(losses)/len(losses)
             train_hist.append(average_loss)
-            print(f'Epoch [{epoch+1}/{epochs}] - Training Loss: {average_loss:.4f}')
+            if verbose:
+                print(f'Epoch [{epoch+1}/{epochs}] - Loss: {average_loss:.4f}')
+
+        self.model.eval()
+
+        with torch.no_grad():
+            fitted_data = self.model(endog_inps, exog_inps)
+
+        self.fitted[-len(fitted_data):] = fitted_data[:,0]
 
         return train_hist
 
-    def predict(self, x_input, y_input):
-        '''
-        Predicts the output for a given input
-
-        Args:
-            x_input (torch.Tensor): Input tensor (prediction_batch_size, n_features)
-            y_input (torch.Tensor): Output tensor
-
-        Returns:
-            pred (torch.Tensor): Prediction tensor (prediction_batch_size, 1)
+    def predict(
+                self, 
+                h,
+                exogenous_inputs=None,
+):
         
-        '''
-        # Convert to tensor if not already
-        if not isinstance(x_input, torch.Tensor) and not isinstance(y_input, torch.Tensor):
-            x_input = torch.tensor(x_input).float().to(self.config['device'])
-            y_input = torch.tensor(y_input).float().to(self.config['device'])
+        endog_features = self.data[-self.config["window"]:].clone()
+        exog_features = self.exogenous_data[-self.config["exog_window"]:].clone()
 
-        # Add an extra dimension at the beginning
-        x_input = x_input.unsqueeze(0)
-        y_input = y_input.unsqueeze(0)
+        forecasts = torch.zeros(h)
         self.model.eval()
-        pred = self.model(x_input, y_input)
-        return pred
+
+        for step in range(h):
+            with torch.no_grad():
+                step_fc = self.model(
+                                    endog_features.unsqueeze(0), 
+                                    exog_features.unsqueeze(0)
+                )
+
+            forecasts[step] = step_fc[0, 0]
+
+            endog_features = torch.cat((endog_features[1:], step_fc[0]), dim=0)
+
+            if exogenous_inputs is not None:
+                try:
+                    cur_exog = DataLoader(exogenous_inputs).match_dims(1, return_type="tensor")[step]
+                    exog_features = torch.cat((exog_features[1:], cur_exog.unsqueeze(0)), dim=0)
+                except: # noqa: E722
+                    pass
         
+        return forecasts

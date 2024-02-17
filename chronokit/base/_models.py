@@ -149,3 +149,59 @@ class TraditionalTimeSeriesModel:
         # This function will be overriden by the child class.
         raise NotImplementedError("This function is not implemented yet.")
 
+class NeuralTimeSeriesModel:
+    '''
+    Torch implementation of the NARX model.
+    '''
+    def __init__(
+                self,
+                data,
+                exogenous_data=None,
+                **kwargs,
+):
+        #super(NeuralTimeSeriesModel, self).__init__()
+
+        self.data_loader = DataLoader(data)
+
+        try:
+            self.data = self.data_loader.match_dims(dims=1, return_type="tensor")
+
+        except: #noqa: E722
+            raise NotImplementedError(
+                "Multivariate models are not implemented as of v1.1.0,\
+                please make sure data.ndim <= 1 or squeezable"
+            )
+
+        if exogenous_data is not None:
+            try:
+                self.exogenous_data = DataLoader(exogenous_data).match_dims(dims=1, return_type="tensor")
+            except: #noqa: E722
+                raise NotImplementedError(
+                    "Multivariate models are not implemented as of v1.1.0,\
+                    please make sure exogenous data.ndim <= 1 or squeezable"
+                )
+
+            if len(self.exogenous_data) != len(self.data):
+                raise NotImplementedError(
+                    f"Models with exogenous data of different length than \
+                    endogenous data have not been implemented as of v1.1.x.\n\
+                    Got {len(self.exogenous_data)} != {len(self.data)}"
+                )
+            
+        else:
+            self.exogenous_data = None
+        
+        self.info = {}
+
+    def set_allowed_kwargs(self, kwargs: list):
+        """This function sets the allowed keyword arguments for the model."""
+        self.allowed_kwargs = kwargs
+
+    def set_kwargs(self, kwargs: dict):
+        """This function sets the keyword arguments for the model."""
+        valid_kwargs = self.check_kwargs(kwargs)
+        for k, v in valid_kwargs.items():
+            self.__setattr__(k, v)
+    
+    def check_kwargs(self, kwargs: dict):
+        return kwargs
