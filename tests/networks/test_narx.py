@@ -2,7 +2,7 @@ import torch
 import unittest
 import numpy as np
 import numpy.testing as npt
-from chronokit.narx import NARX
+from chronokit.networks import NARX
 
 class TestNARX(unittest.TestCase):
     def setUp(self):
