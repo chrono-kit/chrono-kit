@@ -124,7 +124,9 @@ class SARIMAInitializer(Initializer):
         init_values = [self.init_params[param] for param in ["theta", "seasonal_theta"]]
         init_values = DataLoader(torch.cat(init_values)).to_numpy()
 
-        results = opt.least_squares(fun=func, x0=init_values)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            results = opt.least_squares(fun=func, x0=init_values, max_nfev=10)
 
         result_params = list(results.x)
         self.success = results.success

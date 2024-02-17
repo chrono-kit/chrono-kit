@@ -123,7 +123,7 @@ class SmoothingInitializer(Initializer):
         try:
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
-                results = opt.least_squares(fun=func, x0=init_params, bounds=(1e-6,1-1e-6))
+                results = opt.least_squares(fun=func, x0=init_params, bounds=(1e-6,1-1e-6), max_nfev=10)
             estimated_params = results.x
 
             init_components = [self.init_components["level"]]

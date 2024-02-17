@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import torch
-from ._dataloader import DataLoader
+from chronokit.preprocessing._dataloader import DataLoader
 from scipy.stats import boxcox_normmax
 
 

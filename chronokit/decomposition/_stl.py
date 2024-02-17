@@ -4,7 +4,6 @@ from chronokit.preprocessing._dataloader import DataLoader
 from scipy.linalg import lstsq
 from chronokit.utils.vis_utils import plot_decomp
 
-
 def bi_square(x):
     """
     The bi-square function for robust regression in LOWESS and LOESS.
