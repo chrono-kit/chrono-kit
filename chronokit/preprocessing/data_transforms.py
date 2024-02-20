@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 import torch
-from chronokit.preprocessing._dataloader import DataLoader
+import warnings
 from scipy.stats import boxcox_normmax
-
+from chronokit.preprocessing._dataloader import DataLoader
 
 def differencing(data, order=1, return_numpy=True):
     """
@@ -82,9 +82,9 @@ class DataTransform:
                         )
 
             else:
-                hmap = {0: "row", 1: "col", -1: "col", -2: "row"}
+                hmap = {0: "col", 1: "row", -1: "row", -2: "col"}
                 data_names = [f"{hmap[axis]}{i}" for i in range(loader.data.shape[1 - axis % 2])]
-
+                
                 for scale_dict in list(scales.values()):
                     if scale_dict != {}:
                         assert len(list(scale_dict.keys())) == len(
@@ -263,7 +263,9 @@ class BoxCox(DataTransform):
                 raise ValueError("Provide lambda value as a float")
 
         else:
-            lambd = boxcox_normmax(box_coxed, method="mle")
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                lambd = boxcox_normmax(box_coxed, method="mle")
 
         box_coxed = np.log(box_coxed) if lambd == 0 else (np.power(box_coxed, lambd) - 1) / lambd
         self.lambdas[data_name] = lambd
@@ -327,7 +329,7 @@ class StandardScaling(DataTransform):
                         if s == 0:
                             raise ValueError("cannot scale data with std = 0")
             else:
-                hmap = {0: "row", 1: "col", -1: "col", -2: "row"}
+                hmap = {0: "col", 1: "row", -1: "row", -2: "col"}
                 data_names = [f"{hmap[axis]}{i}" for i in range(loader.data.shape[1 - axis % 2])]
                 if locations == {}:
                     locs = loader.to_numpy().mean(axis)
@@ -504,7 +506,7 @@ class MinMaxScaling(DataTransform):
                     raise ValueError("Cannot scale with min(data)=max(data)")
 
             else:
-                hmap = {0: "row", 1: "col", -1: "col", -2: "row"}
+                hmap = {0: "col", 1: "row", -1: "row", -2: "col"}
                 data_names = [f"{hmap[axis]}{i}" for i in range(loader.data.shape[1 - axis % 2])]
 
                 if mins == {}:

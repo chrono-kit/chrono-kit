@@ -143,7 +143,8 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
             self.seasonal_phi = init_params["seasonal_phi"]
             self.seasonal_theta = init_params["seasonal_theta"]
 
-            self.info["optimization_success"] = initializer.success
+            #TODO: Uncomment this when initialization is improved
+            #self.info["optimization_success"] = initializer.success
 
         else:
             if not set(self.allowed_kwargs).issubset(kwargs.keys()):
