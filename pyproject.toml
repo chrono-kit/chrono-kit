@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "chrono-kit"
 packages = [{ include = "./chronokit"}]
-version = "1.1.0"
+version = "1.1.1"
 description = "An open source python library for time series analysis and forecasting."
 authors = ["ODTU YZT <odtuyzt@gmail.com>"]
 readme = "README.md"
