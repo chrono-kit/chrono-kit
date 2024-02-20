@@ -87,8 +87,6 @@ class SmoothingInitializer(Initializer):
             self.init_params["gamma"] = 0.05*(1-self.init_params["alpha"])
         else:
             self.init_params["gamma"] = 0.
-        
-       
 
         for component, value in self.init_components.items():
                 setattr(self.model, component, value)

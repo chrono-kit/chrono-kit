@@ -52,12 +52,12 @@ def plot_predictions(
     ax = kwargs.get("ax", None)
 
     try:
-        y_true = DataLoader(y_true).to_numpy()
+        y_true = DataLoader(y_true).match_dims(1, return_type="numpy")
     except:  # noqa: E722
         raise ValueError("Expecting y_true as an array_like")
     
     try:
-        y_pred = DataLoader(y_pred).to_numpy()
+        y_pred = DataLoader(y_pred).match_dims(1, return_type="numpy")
     except:  # noqa: E722
         raise ValueError("Expecting y_pred as an array_like")
 
@@ -89,7 +89,7 @@ def plot_predictions(
 
     if pre_vals is not None:
         try:
-            pre_vals = DataLoader(pre_vals).to_numpy()
+            pre_vals = DataLoader(pre_vals).match_dims(1, return_type="numpy")
         except:  # noqa: E722
             raise ValueError("Expecting pre_vals argument as an array_like")
         
@@ -112,8 +112,8 @@ def plot_predictions(
 
             
             error_bounds = {
-                    "upper": DataLoader(bounds["upper"]).to_numpy(),
-                    "lower": DataLoader(bounds["lower"]).to_numpy(),
+                    "upper": DataLoader(bounds["upper"]).match_dims(1, return_type="numpy"),
+                    "lower": DataLoader(bounds["lower"]).match_dims(1, return_type="numpy")
                 }
 
         else:
@@ -122,8 +122,8 @@ def plot_predictions(
 
             
             error_bounds = {
-                    "upper": DataLoader(bounds[0]).to_numpy(),
-                    "lower": DataLoader(bounds[1]).to_numpy()
+                    "upper": DataLoader(bounds[0]).match_dims(1, return_type="numpy"),
+                    "lower": DataLoader(bounds[1]).match_dims(1, return_type="numpy")
                 }
         
         if pre_vals is not None:
@@ -173,7 +173,7 @@ def plot_predictions(
         show_plot = False
 
     if pre_vals is not None:
-        pre_vals = DataLoader(pre_vals).to_numpy()
+        pre_vals = DataLoader(pre_vals).match_dims(1, return_type="numpy")
         main_plt_range = range(len(pre_vals)-1, len(pre_vals) + len(y_pred))
         ax.plot(range(len(pre_vals)), pre_vals, color=use_colors["pre_vals"])
         ax.scatter(range(len(pre_vals)), pre_vals, color=use_colors["pre_vals"], s=20)

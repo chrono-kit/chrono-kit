@@ -109,12 +109,12 @@ class ModelEvaluator:
             )
 
         def log_likelihood(errors):
-            err = DataLoader(errors).to_numpy()
+            err = DataLoader(errors).match_dims(1, return_type="numpy")
             err = err[~np.isnan(err)]
             loc = np.nanmean(err)
             scale = np.nanstd(err)
             log_likelihood = np.sum(norm.logpdf(err, loc=loc, scale=scale))
-            return -log_likelihood
+            return log_likelihood
 
         errors = model.data - model.fitted
         
@@ -126,6 +126,9 @@ class ModelEvaluator:
 
         model_results = {}
 
+        val_data = DataLoader(val_data).match_dims(1, return_type="tensor")
+        forecasts = DataLoader(forecasts).match_dims(1, return_type="tensor")
+
         for criterion, func in self.ic.items():
             #AIC function does not take num_observations argument
             if criterion == "AIC":
@@ -133,12 +136,12 @@ class ModelEvaluator:
             else:
                 ic = func(ll, num_parameters, num_observations)
 
-            model_results[criterion] = ic
+            model_results[criterion] = ic.item()
 
         for metric, func in self.metrics.items():
             res = func(y_pred=forecasts, y_true=val_data)
 
-            model_results[f"Val_{metric}"] = res
+            model_results[f"Val_{metric}"] = res.item()
 
         return model_results
     
@@ -298,6 +301,7 @@ class ModelEvaluator:
             results[model_class] = eval_results
         
         results = pd.DataFrame(results).transpose()
+        rankings = results.apply(lambda x: (x-x.min())/(x.max()-x.min()), axis=0)
         rankings = results.sum(axis=1).sort_values().index.to_list()
         
         print(f"Best Model: {rankings[0]}")

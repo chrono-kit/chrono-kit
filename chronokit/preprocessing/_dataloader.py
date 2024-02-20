@@ -123,12 +123,6 @@ class DataLoader:
 
         data = self.to_numpy()
 
-        if len(data.shape) == dims:
-            if return_type == "numpy":
-                return self.to_numpy()
-            else:
-                return self.to_tensor()
-
         if data.ndim == dims:
             if return_type == "numpy":
                 return data
@@ -140,9 +134,11 @@ class DataLoader:
         
         elif data.ndim > dims:
             one_axes = np.where(np.array(data.shape) == 1)[0]
-            assert (one_axes == data.ndim - 1), ".match_dims cannot be called on a data with multiple dimensions with shape != 1"
+            assert (dims <= data.ndim - len(one_axes)), f".match_dims cannot be used where \
+                dims > (data.ndim - number of axes with shape 1).\n\
+                Got {dims} > {data.ndim - len(one_axes)}"
 
-            data = np.squeeze(data, axis=tuple([x for x in one_axes[-dims:]]))
+            data = np.squeeze(data, axis=tuple([x for x in one_axes[list(range(data.ndim-dims))]]))
         
         if return_type == "numpy":
             return data

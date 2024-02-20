@@ -114,7 +114,7 @@ def mase(y_true, y_pred):
 
 def IC(log_likelihood, num_parameters, penalty_factor):
     """Default Information Criterion"""
-    return log_likelihood + num_parameters*penalty_factor
+    return -2*log_likelihood + num_parameters*penalty_factor
 
 
 def AIC(log_likelihood, num_parameters):

@@ -56,7 +56,7 @@ class SARIMAInitializer(Initializer):
             self.init_params["phi"] = torch.zeros(0)
 
         if self.model.q > 0:
-            self.init_params["theta"] = torch.zeros(self.model.q) + 0.1
+            self.init_params["theta"] = torch.zeros(self.model.q)
             self.used_params["theta"] = self.model.q
         else:
             self.init_params["theta"] = torch.zeros(0)
@@ -68,7 +68,7 @@ class SARIMAInitializer(Initializer):
             self.init_params["seasonal_phi"] = torch.zeros(0)
         
         if self.model.Q > 0:
-            self.init_params["seasonal_theta"] = torch.zeros(self.model.Q) + 0.1
+            self.init_params["seasonal_theta"] = torch.zeros(self.model.Q)
             self.used_params["seasonal_theta"] = self.model.Q
         else:
             self.init_params["seasonal_theta"] = torch.zeros(0)

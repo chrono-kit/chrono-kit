@@ -60,12 +60,17 @@ def plot_decomp(
                 use_colors[list(use_colors.keys())[ind]] = c
 
     trend = DataLoader(trend).to_numpy()
-    seasonal = DataLoader(seasonal).to_numpy()
     remainder = DataLoader(remainder).to_numpy()
 
     if seasonal.ndim > 1:
         num_seasonals = seasonal.shape[0]
+
+        if num_seasonals == 1:
+            seasonal = DataLoader(seasonal).match_dims(1, return_type="numpy")
+        else:
+            seasonal = DataLoader(seasonal).to_numpy()
     else:
+        seasonal = DataLoader(seasonal).to_numpy()
         num_seasonals = 1
 
     fig, axes = plt.subplots(2 + num_seasonals, 1, figsize=figsize)
@@ -169,7 +174,6 @@ def plot_train_test_split(
         plt.scatter(
             range(len(train)-1, len(train) + len(val_data)),
             np.concatenate(([train[-1]], val), axis=0),
-            label="Validation",
             color=use_colors["val"],
             s=20
         )
@@ -189,7 +193,6 @@ def plot_train_test_split(
                 len(train) + len(val_data) + len(test_data),
             ),
             np.concatenate(([val[-1]], test), axis=0),
-            label="Test",
             color=use_colors["test"],
             s=20
         )
@@ -201,7 +204,7 @@ def plot_train_test_split(
     else:
         plt.figure(figsize=figsize)
         plt.plot(range(len(train)), train, label="Train", color=use_colors["train"])
-        plt.scatter(range(len(train)), train, label="Train", color=use_colors["train"], s=20)
+        plt.scatter(range(len(train)), train, color=use_colors["train"], s=20)
 
         plt.plot(
             range(len(train)-1, len(train) + len(test)),
@@ -212,7 +215,6 @@ def plot_train_test_split(
         plt.scatter(
             range(len(train)-1, len(train) + len(test)),
             np.concatenate(([train[-1]], test), axis=0),
-            label="Test",
             color=use_colors["test"],
             s=20
         )
