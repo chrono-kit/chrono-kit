@@ -2,7 +2,7 @@
 
 This project was started in 2023 by ODTU YZT.
 ## Documentation
-See the [documentations]([https://github.com/odtuyzt/chrono-kit/wiki](https://odtuyzt.github.io/chronokit/index.html)) for information. (The site is still under construction)
+See the [documentations](https://odtuyzt.github.io/chronokit/index.html) for information. (The site is still under construction)
 
 Or take a look at the [examples](https://github.com/odtuyzt/chrono-kit/tree/main/examples).
 
