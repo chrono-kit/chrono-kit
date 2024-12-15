@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from chronokit.preprocessing._dataloader import DataLoader
 from scipy.linalg import lstsq
+from scipy.interpolate import interp1d
 from chronokit.utils.vis_utils import plot_decomp
 
 def bi_square(x):
@@ -47,6 +48,7 @@ def tri_cube(x):
 
 
 def LOESS(data, window_size, degree=1, robustness_weights=None):
+    #return lowess(data, exog=range(len(data)), it=1, frac=window_size/len(data))[:, 1]
     """
     Locally Estimated Scatterplot Smoothing for time series data
 
@@ -62,7 +64,7 @@ def LOESS(data, window_size, degree=1, robustness_weights=None):
 
     *y_smoothed (np.ndarray): Smoothed values as a result of LOESS.
     """
-
+    
     # Define a loess function fitting to all of the data at once
     def loess(x, y, xi, degree=1, robustness_weights=None, q=None):
         """
@@ -86,35 +88,47 @@ def LOESS(data, window_size, degree=1, robustness_weights=None):
         elif not q:
             q = int((len(y) - 1) / 2)
 
-        assert degree >= 0, "Degree must be greater than 0"
+        assert (isinstance(degree, int) and degree >= 0), "Degree must be a non-negative integer"
+        
+        if xi - q > 0 and xi + q < len(y):
+            subset_start = max(0, xi - q)
+            subset_end = min(len(y), xi + q+1)
+        elif xi - q <=0:
+            subset_start = 0
+            subset_end = q*2 + 1
+        elif xi + q >= len(y):
+            subset_end = len(y)
+            subset_start = len(y) - q*2 - 1
+
+        distances = np.abs(x - xi)
+        distances = distances[subset_start:subset_end]
+            
+        x = x[subset_start:subset_end]
+        y = y[subset_start:subset_end]
 
         # Calculate distances of each data point to xi
-        distances = np.abs(x - xi)
         # Calculate weights by the tricube function, making sure that data points
         # farther than q are given weight 0
-        weights = tri_cube(distances / q)
-
+        weights = tri_cube(distances / np.max(distances))
+        
         # If robustness weights are given, multiply weights so that outliers are given less weights
         if robustness_weights is not None:
-            weights *= robustness_weights
+            weights *= robustness_weights[subset_start:subset_end]
+        
+        #Normalize weights
+        weights /= weights.sum()
 
         # Get the vandermonde matrix of x for polynomial fitting
-        A = np.vander(x, degree + 1)
+        A = np.vander(x, degree+1)
 
         # Get the w from the fitted equation A*w = y
         # Multiplying A and y by sqrt(weights) to perform weighted least squares
         w, _, _, _ = lstsq(A * np.sqrt(weights[:, np.newaxis]), y * np.sqrt(weights))
 
-        # Calculate y_smoothed by y_smoothed = w0*x^d + w1*x^(d-1) + .....
-        y_smoothed = np.polyval(w, x)
-
-        return y_smoothed
+        return np.polyval(w, xi)
 
     # Calculate the half of the window size to use for weighting data points in loess(used as q),
-    # must be odd
     half_window = int((window_size - 1) / 2)
-    if half_window % 2 == 0:
-        half_window += 1
 
     # Turn data into np.ndarray if it is not
     if not isinstance(data, np.ndarray):
@@ -135,16 +149,18 @@ def LOESS(data, window_size, degree=1, robustness_weights=None):
             raise ValueError("data.ndim must be == 1 or squeezable to ndim==1")
 
     # Define empty array to store LOESS results
-    smoothed = np.zeros(len(data))
+    smoothed = np.empty(len(data))
 
     # Define an array indexing each data point
     x = np.arange(len(data))
 
     # For each data point(xi), fit loess by giving full weight to xi and
     # store the result in the smoothed array
+    
     for xi in x:
         # Fit loess by weights centered around xi
-        smooth = loess(
+        # Store the fitted value for data[xi] in the smoothed array
+        smoothed[xi] = loess(
             x,
             data,
             xi,
@@ -152,9 +168,6 @@ def LOESS(data, window_size, degree=1, robustness_weights=None):
             robustness_weights=robustness_weights,
             q=half_window,
         )
-
-        # Store the fitted value for data[xi] in the smoothed array
-        smoothed[xi] = smooth[xi]
 
     return smoothed
 
@@ -194,21 +207,15 @@ def __inner_loop(
 
         # Detrend by subtracting trend component
         detrended = y - trend
-
-        # Define empty list to store each cycle subseries
-        cycle_subseries = []
-
+        
         for i in range(seasonal_period):
-            # Get each cycle-subseries from detrended data and
-            # store them in the cycle_subseries list
-            cycle_subseries.append(detrended[range(i, len(y), seasonal_period)])
+            # Get each cycle-subseries from detrended data
+            subseries = detrended[range(i, len(y), seasonal_period)]
 
-        # Loop over the cycle_subseries
-        for ind, subseries in enumerate(cycle_subseries):
             # Get the robustness weights corresponding to current cycle-subseries
-            s_weights = weights[range(ind, len(weights), seasonal_period)]
-
-            # Get the results of the LOESS smoothing for the currenc cycle-subseries
+            s_weights = weights[range(i, len(weights), seasonal_period)]
+            
+            # Get the results of the LOESS smoothing for the current cycle-subseries
             loess_res = LOESS(
                 data=subseries,
                 window_size=seasonal_smoothing,
@@ -216,19 +223,12 @@ def __inner_loop(
                 robustness_weights=s_weights,
             )
 
-            # For the 2*seasonal_periods amount of values that will be lost
-            # during low pass filtering;
-            # Apply scipy.lstsq to extrapolate values for the endpoints of the cycle subseries
-            # based on LOESS results
-            extrax = np.arange(len(loess_res)) + 1
-            w0, _, _, _ = lstsq(np.vander(extrax, seasonal_degree + 1), loess_res)
-            w1, _, _, _ = lstsq(np.vander(extrax, seasonal_degree + 1), loess_res)
-            loess_res = list(loess_res)
-            loess_res.insert(0, np.polyval(w0, 0))
-            loess_res.insert(-1, np.polyval(w1, extrax[-1] + 1))
-
+            # For the 2*seasonal_periods amount of values that will be lost during low pass filtering;
+            # Extrapolate and extend the results by 1 time step amount
+            extrapolate = interp1d(np.arange(len(loess_res)), loess_res, fill_value="extrapolate")
+            loess_res = [extrapolate(-1)] + list(loess_res) + [extrapolate(len(loess_res))]
             # Store the results of the LOESS on the current cycle-subseris in the ct array.
-            ct[range(ind, len(ct), seasonal_period)] = np.array(loess_res)
+            ct[range(i, len(ct), seasonal_period)] = np.array(loess_res)
 
         # Define a pd.Series equal to ct for low pass fitering
         lt = pd.Series(np.copy(ct))
@@ -299,8 +299,8 @@ def STL(
     method="add",
     degree=1,
     robust=True,
-    outer_iterations=10,
-    inner_iterations=2,
+    outer_iterations=None,
+    inner_iterations=None,
     post_smoothing=False,
     show=False,
     **kwargs,
@@ -380,14 +380,13 @@ def STL(
     for k, v in kwargs.items():
         if k not in allowed_kwargs:
             raise ValueError("{key} is not a valid keyword for this model".format(key=k))
-        locals()[k] = v
 
-    trend_window = locals().get("trend_window", None)
-    seasonal_window = locals().get("seasonal_window", None)
-    low_pass_window = locals().get("low_pass_window", None)
-    trend_degree = locals().get("trend_degree", degree)
-    seasonal_degree = locals().get("seasonal_degree", degree)
-    low_pass_degree = locals().get("low_pass_degree", degree)
+    trend_window = kwargs.get("trend_window", None)
+    seasonal_window = kwargs.get("seasonal_window", None)
+    low_pass_window = kwargs.get("low_pass_window", None)
+    trend_degree = kwargs.get("trend_degree", degree)
+    seasonal_degree = kwargs.get("seasonal_degree", degree)
+    low_pass_degree = kwargs.get("low_pass_degree", degree)
 
     # Assertions for making sure parameters are valid
     assert degree >= 0, "Degree must be greater than 0"
@@ -410,16 +409,21 @@ def STL(
     # If trend_window is not given, take it as the least odd integer,denote it as k, satisfying;
     # k >= 1.5*seasonal_period/(1- 1/(1.5*seasonal_window))
     if not trend_window:
-        trend_window = 1.5 * seasonal_period / (1 - 1 / (1.5 * seasonal_window))
+        trend_window = 1.5 * seasonal_period / (1 - 1.5/seasonal_window)
         if trend_window != int(trend_window):
             trend_window = int(trend_window) + 1
         else:
             trend_window = int(trend_window)
         if trend_window % 2 == 0:
             trend_window += 1
+    
+    if outer_iterations is None:
+        outer_iterations = 15 if robust else 0
+    if inner_iterations is None:
+        inner_iterations = 2 if robust else 5
 
     # Assertions for making sure parameters are valid
-    assert outer_iterations >= 1, "Number of outer loop iterations must be >= 1"
+    assert outer_iterations >= 0, "Number of outer loop iterations must be >= 0"
     assert inner_iterations >= 1, "Number of inner loop iterations must be >= 1"
     assert (
         low_pass_window % 2 == 1 and low_pass_window >= seasonal_period
@@ -444,7 +448,7 @@ def STL(
     # Initialize robustness weight as 1
     weights = np.ones(len(data))
 
-    for it in range(outer_iterations):
+    for _ in range(outer_iterations+1):
         # Perform the inner loop and get the trend and seasonal components
         trend, seasonal = __inner_loop(
             y=data,
