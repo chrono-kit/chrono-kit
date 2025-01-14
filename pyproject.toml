@@ -1,9 +1,9 @@
 [tool.poetry]
 name = "chrono-kit"
 packages = [{ include = "./chronokit"}]
-version = "1.1.1"
+version = "1.2.1"
 description = "An open source python library for time series analysis and forecasting."
-authors = ["ODTU YZT <odtuyzt@gmail.com>"]
+authors = ["Hasan Emir Akın <h.emirakn@gmail.com>"]
 readme = "README.md"
 
 classifiers = [
@@ -18,7 +18,7 @@ numpy = "^1.24.0"
 pandas = "^1.4.0"
 scipy = "^1.10.1"
 matplotlib = "^3.2.1"
-torch = "^1.13.1"
+torch = "^2.0.0"
 
 
 [build-system]
@@ -26,4 +26,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [project.urls]
-"Homepage" = "https://github.com/odtuyzt/chrono-kit"
+"Homepage" = "https://github.com/chrono-kit/chrono-kit"
