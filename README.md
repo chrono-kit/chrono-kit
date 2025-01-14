@@ -1,10 +1,6 @@
 **chrono-kit** is an open source python library for time series analysis and forecasting.
 
-This project was started in 2023 by ODTU YZT.
-## Documentation
-See the [documentations](https://odtuyzt.github.io/chronokit/index.html) for information. (The site is still under construction)
-
-Or take a look at the [examples](https://github.com/odtuyzt/chrono-kit/tree/main/examples).
+This project was started in 2023 by members of ODTU YZT.
 
 ## Installation
 
@@ -24,3 +20,9 @@ chronokit requires:
     pip install chrono-kit
 
     import chronokit
+
+## Contact
+
+This project is currentl maintained by Hasan Emir Akın as of 2025. Please contact for any inquiries.
+* github: https://github.com/hasanemirakin
+* gmail: h.emirakn@gmail.com
