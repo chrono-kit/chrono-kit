@@ -8,6 +8,8 @@ from chronokit.preprocessing._dataloader import DataLoader
 from chronokit.preprocessing import differencing
 from chronokit.preprocessing.autocorrelations import AutoCorrelation
 from chronokit.arima.__base_model import ARIMAProcess
+from chronokit.base._models import TraditionalTimeSeriesModel
+from chronokit.arima.__initialization import SARIMAInitializer
 
 """
 SARIMA Models for time series analysis and forecasting
@@ -79,6 +81,7 @@ class SARIMA(ARIMAProcess):
                 order = (0,0,0), 
                 seasonal_order=(0,0,0),
                 seasonal_periods=None,
+                initialization_method="simple",
                 **kwargs
 ):
         
@@ -122,38 +125,7 @@ class SARIMA(ARIMAProcess):
         self.P, self.D, self.Q = seasonal_order
         self.seasonal_periods = seasonal_periods
         
-        super().__init__(data, **kwargs)              
-    
-    def __one_step_equation(self, data, errors):
-        """
-        One step equation for the SARIMA model
-
-        y_t is found by solving the equation;
-
-        phi(B**p)*PHI(B**mP)*delta(B**d)*delta(B**mD)*y_t
-        - theta(B**q)*THETA(B**mQ) = 0
-        """
-
-        #Assume error is 0 for the unknown next y_t
-        new_err = torch.cat((errors, torch.zeros(1)))
-        
-        def func(x):
-
-            #Assume y_t = x; when the function is solved for x
-            #where func(x) = 0, we get our predicted y_t value = x
-            new_data = torch.cat((data, DataLoader(x).to_tensor()))
-
-            lhs = self.ar_operator*self.seasonal_ar_operator*self.diff_operator*self.seasonal_diff_operator*new_data
-            rhs = self.ma_operator*self.seasonal_ma_operator*new_err
-
-            pred = lhs - rhs
-
-            return DataLoader(pred).to_numpy()
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore")
-            sol = opt.fsolve(func, x0=0)[0]
-
-        return DataLoader(sol).to_tensor()
+        super().__init__(data, initialization_method, **kwargs)
     
     def fit(self):
         """Fit the model to the provided univariate time series data"""
@@ -168,24 +140,18 @@ class SARIMA(ARIMAProcess):
 
         self.fitted = torch.zeros(size=self.data.shape)
         self.errors = torch.zeros(size=self.data.shape)
-
-        m = 0 if self.seasonal_periods is None else self.seasonal_periods
-        lookback = self.p + self.d + m*(self.P + self.D) 
-        err_lookback = self.q + m*self.Q
+        
+        lookback = len(self.w_mat)
 
         for ind, y in enumerate(self.data):
+            
+            cur_data = self.data[:ind].clone()
             if ind < lookback:
-                self.fitted[ind] = torch.nan
-                continue
-
-            cur_data = self.data[ind-lookback:ind].clone()
+                cur_data = torch.cat((torch.zeros(lookback-ind), cur_data))
+            elif ind > lookback:
+                cur_data = self.data[ind-lookback:ind].clone()
             
-            if ind < err_lookback:
-                cur_errors = torch.zeros(err_lookback)
-            else:
-                cur_errors = self.errors[ind-err_lookback:ind].clone()
-            
-            y_hat = self.__one_step_equation(cur_data, cur_errors)
+            y_hat = torch.sum(self.w_mat*cur_data)
 
             self.fitted[ind] = y_hat
             self.errors[ind] = y - y_hat     
@@ -211,19 +177,17 @@ class SARIMA(ARIMAProcess):
         
         forecasts = torch.zeros(h)
 
-        m = 0 if self.seasonal_periods is None else self.seasonal_periods
-        lookback = self.p + self.d + m*(self.P + self.D)
-        err_lookback = self.q + m*self.Q
+        lookback = len(self.w_mat)
         cur_data = self.data[-lookback:].clone()
-        cur_errors = self.errors[-err_lookback:].clone()
+        if len(cur_data) < lookback:
+            cur_data = torch.cat((torch.zeros(lookback-len(cur_data)), cur_data))
 
         for step in range(h):
             
-            y_hat = self.__one_step_equation(cur_data, cur_errors)
+            y_hat = torch.sum(self.w_mat*cur_data)
 
             cur_data = torch.cat((cur_data[1:], DataLoader(y_hat).match_dims(1, return_type="tensor")))
-            cur_errors = torch.cat((cur_errors[1:], torch.zeros(1)))
-
+        
             forecasts[step] = y_hat
         
         if confidence is not None:
