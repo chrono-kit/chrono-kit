@@ -51,7 +51,7 @@ class _Dist_Brackets_:
 
         if len(self.args) == 1 and isinstance(self.args[0], tuple):
             self.args = list(self.args[0])
-    
+      
     def __mul__(self, other):
 
         if isinstance(other, type(self)):
@@ -102,7 +102,7 @@ class _Diff_:
 
 class ARIMAProcess(TraditionalTimeSeriesModel):
 
-    def __init__(self, data, **kwargs):
+    def __init__(self, data, initialization_method, **kwargs):
         """
         Base class for all models based on ARIMA Processes.
         This class handles initialization for parameters and attributes
@@ -123,18 +123,16 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
 
         This book may also be referenced as 'Box, G. et al." throughout this repository
         """
-
+        
         super().__init__(data, **kwargs)
 
         #Check model validity
         self.__check_arima()
         self.__init_model_info()
 
-        #TODO: Implement proper initialization for ARIMA Processes
-        initialization_method = "default"
-
         if initialization_method != "known":
-            initializer = SARIMAInitializer(self)
+            
+            initializer = SARIMAInitializer(self, initialization_method)
 
             init_params = initializer.initialize_parameters()
 
@@ -142,9 +140,6 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
             self.theta = init_params["theta"]
             self.seasonal_phi = init_params["seasonal_phi"]
             self.seasonal_theta = init_params["seasonal_theta"]
-
-            #TODO: Uncomment this when initialization is improved
-            #self.info["optimization_success"] = initializer.success
 
         else:
             if not set(self.allowed_kwargs).issubset(kwargs.keys()):
@@ -170,6 +165,43 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
         self.fitted = torch.zeros(size=self.data.shape)
         self.errors = torch.zeros(size=self.data.shape)
     
+    def calc_iv_weights(self, phi, theta):
+
+        pi = [-1]
+        for i in range(20):
+            p = 0
+            cur_pi = np.array(pi).copy()
+            if len(pi) < len(theta):
+                cur_pi = np.concatenate((np.zeros(len(theta) - len(pi)), cur_pi))
+            cur_theta = theta.copy()
+            if len(pi) > len(cur_theta):
+                cur_theta = np.concatenate((cur_theta, np.zeros(len(pi) - len(cur_theta))))
+            
+            p += np.sum(cur_theta[-1::-1]*cur_pi)
+            if i < len(phi):
+                p += phi[i]
+            if abs(p) < 1e-7 and i >= len(phi) + len(theta):
+                break
+            pi.append(p)
+
+        return np.array(pi[1:])
+    
+    def stationarity_condition(self, ar_weights):
+        poly_roots = np.roots(np.concatenate(([1], -ar_weights)))
+        
+        if max(abs(poly_roots)) > 1:
+            return False
+        
+        return True
+    
+    def invertibility_condition(self, ma_weights):
+        poly_roots = np.roots(np.concatenate((-ma_weights[-1::-1], [1])))
+        
+        if min(abs(poly_roots)) < 1:
+            return False
+        
+        return True
+    
     def __prepare_operations__(self):
         """
         Prepare operations with model parameters
@@ -187,29 +219,38 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
         _Diff_(ord=d, seasonal_periods=None) = (1 - B)**d
         _Diff_(ord=d, seasonal_periods=m) = (1 - B**m)**d    
         """
+        
+        diff_operator = _Diff_(ord=self.d, seasonal_period=None)
+        seasonal_diff_operator = _Diff_(ord=self.D, seasonal_period=self.seasonal_periods)
 
-        ar_args = [1]
-        for x in range(self.p):
-            ar_args.append(_B_Op_(weight=-self.phi[x], order=x+1))
-        self.ar_operator = _Dist_Brackets_(tuple(ar_args))
+        phi = DataLoader(self.phi).to_numpy()
+        theta = DataLoader(self.theta).to_numpy()
 
-        ma_args = [1]
-        for x in range(self.q):
-            ma_args.append(_B_Op_(weight=-self.theta[x], order=x+1))
-        self.ma_operator = _Dist_Brackets_(tuple(ma_args))
+        seasonal_phi = DataLoader(self.seasonal_phi).to_numpy()
+        seasonal_theta = DataLoader(self.seasonal_theta).to_numpy()
 
-        seasonal_ar_args = [1]
-        for x in range(self.P):
-            seasonal_ar_args.append(_B_Op_(weight=-self.seasonal_phi[x], order=self.seasonal_periods*(x+1)))
-        self.seasonal_ar_operator = _Dist_Brackets_(tuple(seasonal_ar_args))
+        iv_weights = self.calc_iv_weights(phi, theta)
+        seasonal_iv_weights = self.calc_iv_weights(seasonal_phi, seasonal_theta)
 
-        seasonal_ma_args = [1]
-        for x in range(self.Q):
-            seasonal_ma_args.append(_B_Op_(weight=-self.seasonal_theta[x], order=self.seasonal_periods*(x+1)))
-        self.seasonal_ma_operator = _Dist_Brackets_(tuple(seasonal_ma_args))
+        iv_args = [1]
+        for i in range(len(iv_weights)):
+            iv_args.append(_B_Op_(weight=-iv_weights[i], order=i+1))
 
-        self.diff_operator = _Diff_(ord=self.d, seasonal_period=None)
-        self.seasonal_diff_operator = _Diff_(ord=self.D, seasonal_period=self.seasonal_periods)
+        s_iv_args = [1]
+        for i in range(len(seasonal_iv_weights)):
+            s_iv_args.append(_B_Op_(weight=-seasonal_iv_weights[i], order=self.seasonal_periods*(i+1)))
+        
+        iv_op = _Dist_Brackets_(tuple(iv_args))
+        siv_op = _Dist_Brackets_(tuple(s_iv_args))
+
+        operator = iv_op * siv_op * diff_operator * seasonal_diff_operator
+        operator = _Dist_Brackets_(tuple(operator.args[1:]))
+
+        lookback = max((arg.order for arg in operator.args))
+        self.w_mat = torch.zeros(lookback)
+        for arg in operator.args:
+            self.w_mat[-arg.order] -= arg.weight
+        
 
     def check_kwargs(self, kwargs: dict):
         """This function checks if the keyword arguments are valid."""
@@ -228,10 +269,6 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
                 kwarg_data_loader = DataLoader(v)
             except:  # noqa: E722
                 continue
-            
-            #TODO: There are some conditions on parameter values for some cases
-            #Ex: Theta need to lie between (-1,1)
-            #Implement those
                 
             valid_kwargs[k] = kwarg_data_loader.to_tensor()
 
@@ -294,7 +331,7 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
         
         #Order of (0,d,0), (0,D,0) is not accepted
         if self.P + self.Q == 0:
-            setattr(self, "seasonal_periods", None)
+            #setattr(self, "seasonal_periods", None)
 
             if self.p + self.q == 0:
                 raise ValueError(
@@ -302,7 +339,7 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
                       Include at least one seasonal or normal (or both) AR/MA component"
                 )
             
-            setattr(self, "D", 0)
+            #setattr(self, "D", 0)
 
         #Check seasonal_periods argument is valid
         if self.seasonal_periods is not None:
@@ -367,27 +404,37 @@ class ARIMAProcess(TraditionalTimeSeriesModel):
         """
 
         psi_vals = torch.ones(len(forecasts))
-
-        for x in range(2, len(forecasts)+1):
-            phivals = self.phi.clone()
-            
-            if len(phivals) > len(psi_vals[:x-1]):
-                phivals = phivals[:len(psi_vals[:x-1])]
-            elif len(phivals) < len(psi_vals[:x-1]):
-                phivals = torch.cat((phivals, torch.zeros(len(psi_vals[:x-1])-len(phivals))))
-
-            psi_vals[x-1] = 1 + torch.sum(psi_vals[:x-1]*phivals.__reversed__())
         
-        fc_variance = torch.zeros(len(forecasts))
-        for x in range(2, len(forecasts)):
-            fc_variance[x-1] = torch.sum(torch.square(psi_vals[:x-1]))
+        for x in range(1, len(forecasts)):
+            phivals = self.phi.clone()
+            if self.d == 1 and len(phivals) > 0:
+                ##Essentially writing; 
+                #   (1 - phi_{1}*B - phi_{2}*B^2 - ...)(1 - B)Y_t as,
+                #   (1 - (1 + phi_{1})B - (phi_{2} - phi_{1})B^2 - ... - (phi_{q} - phi_{q-1})B^q - (-phi_{q})B^q+1)Y_t
+                nw = phivals.clone()
+                nw[0] = 1 + phivals[0]
+                last = -phivals[-1:]
+                for j in range(1, len(phivals)):
+                    nw[j] = phivals[j] - phivals[j-1]
+                phivals = torch.concat((nw, last))
+            
+            if len(phivals) > len(psi_vals[:x]):
+                phivals = phivals[:len(psi_vals[:x])]
+            elif len(phivals) < len(psi_vals[:x]):
+                phivals = torch.cat((phivals, torch.zeros(len(psi_vals[:x])-len(phivals))))
 
-        fc_variance = 1 + fc_variance 
-        fc_variance = fc_variance*torch.tensor(np.nanvar(self.data - self.fitted), dtype=torch.float32)
+            psi_vals[x] = torch.sum(psi_vals[:x]*phivals.__reversed__())
+
+            if x <= len(self.theta):
+                psi_vals[x] = psi_vals[x] - self.theta[x-1]
+        
+        fc_variance = torch.ones(len(forecasts))
+        for x in range(1, len(forecasts)):
+            fc_variance[x] = torch.sqrt(1+torch.sum(torch.square(psi_vals[1:x+1])))
 
         z_conf = round(norm.ppf(1 - ((1 - confidence) / 2)), 2)
 
-        upper_bounds = forecasts + z_conf*torch.sqrt(fc_variance)
-        lower_bounds = forecasts - z_conf*torch.sqrt(fc_variance)
+        upper_bounds = forecasts + z_conf*fc_variance*np.nanstd(self.fitted - self.data)
+        lower_bounds = forecasts - z_conf*fc_variance*np.nanstd(self.fitted - self.data)
 
         return upper_bounds, lower_bounds
